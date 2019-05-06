@@ -45,7 +45,7 @@ def recover_target_token(lay_skip, pred_list, vocab_tgt, vocab_copy_ext, max_sen
                     tk = vocab_tgt.itos[pred_list[i][j]]
                 else:
                     tk = vocab_copy_ext.itos[pred_list[i][j] - len(vocab_tgt)]
-                    
+
                 if i < len(lay_skip):
                     if lay_skip[i] == 'NUMBER':
                         is_number = True
@@ -81,7 +81,7 @@ def get_decode_batch_length(dec, batch_size, max_sent_length):
             r_list.append(max_sent_length)
         else:
             r_list.append(find_len)
-    assert(len(r_list) == batch_size)
+    assert (len(r_list) == batch_size)
     return torch.LongTensor(r_list)
 
 
@@ -112,8 +112,7 @@ class Translator(object):
     def __init__(self, opt, dummy_opt={}):
         # Add in default model arguments, possibly added since training.
         self.opt = opt
-        checkpoint = torch.load(opt.model,
-                                map_location=lambda storage, loc: storage)
+        checkpoint = torch.load(opt.model, map_location=lambda storage, loc: storage)
         self.fields = table.IO.TableDataset.load_fields(checkpoint['vocab'])
 
         model_opt = checkpoint['opt']
@@ -122,8 +121,7 @@ class Translator(object):
             if arg not in model_opt:
                 model_opt.__dict__[arg] = dummy_opt[arg]
 
-        self.model = table.ModelConstructor.make_base_model(
-            model_opt, self.fields, checkpoint)
+        self.model = table.ModelConstructor.make_base_model(model_opt, self.fields, checkpoint)
         self.model.eval()
 
         if model_opt.moving_avg > 0:
@@ -149,7 +147,7 @@ class Translator(object):
             dec_out = classifier(dec_all)
             dec_out = dec_out.data.view(1, batch_size, -1)
             if vocab_mask is not None:
-                dec_out_part = dec_out[:, :, len(table.IO.special_token_list):]
+                dec_out_part = dec_out[:, :, len(table.IO.SPECIAL_TOKEN_LIST):]
                 dec_out_part.masked_fill_(vocab_mask, -float('inf'))
                 # dec_out_part.masked_scatter_(vocab_mask, dec_out_part[vocab_mask].add(-math.log(1000)))
             inp = argmax(dec_out)
@@ -175,12 +173,12 @@ class Translator(object):
             tgt_mask_expand = v_eval(tgt_mask_seq[i].unsqueeze(
                 0).unsqueeze(2).expand_as(tgt_inp_emb))
             inp = tgt_inp_emb.mul(tgt_mask_expand) + \
-                lay_select.mul(1 - tgt_mask_expand)
+                  lay_select.mul(1 - tgt_mask_expand)
             parent_index = None
             dec_all, dec_state, attn_scores, dec_rnn_output, concat_c = decoder(
                 inp, q_all, dec_state, parent_index)
             dec_out = classifier(dec_all, dec_rnn_output,
-                                 concat_c, attn_scores, copy_to_ext, copy_to_tgt)
+                concat_c, attn_scores, copy_to_ext, copy_to_tgt)
             # no <unk> in decoding
             dec_out.data[:, :, table.IO.UNK] = -float('inf')
             inp = argmax(dec_out.data)
@@ -218,11 +216,9 @@ class Translator(object):
 
         # layout encoding
         # lay_len = get_decode_batch_length(lay_dec, batch_size, self.opt.max_lay_len)
-        lay_len = torch.LongTensor([len(lay_list[b])
-                                    for b in range(batch_size)])
+        lay_len = torch.LongTensor([len(lay_list[b]) for b in range(batch_size)])
         # data used for layout encoding
-        lay_dec = torch.LongTensor(
-            lay_len.max(), batch_size).fill_(table.IO.PAD)
+        lay_dec = torch.LongTensor(lay_len.max(), batch_size).fill_(table.IO.PAD)
         for b in range(batch_size):
             for i in range(lay_len[b]):
                 lay_dec[i, b] = self.fields['lay'].vocab.stoi[lay_list[b][i]]
@@ -250,7 +246,7 @@ class Translator(object):
 
         # target decoding
         tgt_dec = self.run_tgt_decoder(self.model.tgt_embeddings, tgt_mask_seq, lay_index_seq, lay_all, self.model.tgt_decoder,
-                                       self.model.tgt_classifier, q, q_tgt_all, q_tgt_enc, self.opt.max_tgt_len, lay_skip_list, self.fields['tgt'].vocab, batch.copy_to_ext, batch.copy_to_tgt)
+            self.model.tgt_classifier, q, q_tgt_all, q_tgt_enc, self.opt.max_tgt_len, lay_skip_list, self.fields['tgt'].vocab, batch.copy_to_ext, batch.copy_to_tgt)
         # recover target
         tgt_list = []
         for b in range(batch_size):

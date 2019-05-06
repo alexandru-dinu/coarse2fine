@@ -33,7 +33,7 @@ def make_word_embeddings(opt, word_dict, fields):
 
     if opt.fix_word_vecs:
         # <unk> is 0
-        num_special = len(table.IO.special_token_list)
+        num_special = len(table.IO.SPECIAL_TOKEN_LIST)
         # zero vectors in the fixed embedding (emb_word)
         emb_word.weight.data[:num_special].zero_()
         emb_special = nn.Embedding(
@@ -121,7 +121,7 @@ def make_base_model(model_opt, fields, checkpoint=None):
         token_pruner = nn.Sequential(
             nn.Dropout(model_opt.dropout),
             # skip special tokens
-            nn.Linear(model_opt.rnn_size, len(fields['lay'].vocab) - len(table.IO.special_token_list)))
+            nn.Linear(model_opt.rnn_size, len(fields['lay'].vocab) - len(table.IO.SPECIAL_TOKEN_LIST)))
     else:
         q_token_encoder = None
         token_pruner = None
@@ -153,13 +153,17 @@ def make_base_model(model_opt, fields, checkpoint=None):
         model_opt, fields, 'tgt', None, model_opt.decoder_input_size)
 
     print(" * make ParserModel")
-    model = ParserModel(q_encoder, q_token_encoder, token_pruner, lay_decoder, lay_classifier,
-        lay_encoder, q_co_attention, lay_co_attention, tgt_embeddings, tgt_decoder, tgt_classifier, model_opt)
+    model = ParserModel(
+        q_encoder, q_token_encoder, token_pruner, lay_decoder, lay_classifier,
+        lay_encoder, q_co_attention, lay_co_attention, tgt_embeddings,
+        tgt_decoder, tgt_classifier, model_opt
+    )
 
     if checkpoint is not None:
         print('Loading model')
         model.load_state_dict(checkpoint['model'])
 
+    print(" * cuda")
     model.cuda()
 
     return model

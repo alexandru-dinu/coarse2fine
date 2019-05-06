@@ -79,7 +79,9 @@ def set_train_options(parser):
     parser.add_argument('-root_dir', default='', help="Path to the root directory.")
     parser.add_argument('-dataset', default='atis', help="Name of dataset.")
     parser.add_argument('-train_from', default='', type=str,
-        help="If training from a checkpoint then this is the path to the pretrained model's state_dict.")
+        help="If training from a checkpoint then this is the path to the pretrained model's state_dict."
+    )
+
     # GPU
     parser.add_argument('-gpuid', default=[0], nargs='+', type=int, help="Use CUDA on the listed devices.")
     parser.add_argument('-seed', type=int, default=123, help="Random seed used for the experiments reproducibility.")
@@ -117,10 +119,10 @@ def set_train_options(parser):
     parser.add_argument('-learning_rate_decay', type=float, default=0.985,
         help="If update_learning_rate, decay learning rate by this much if (i) perplexity does not decrease on the validation set or (ii) epoch has gone past start_decay_at"
     )
-    parser.add_argument('-start_decay_at', type=int, default=0, help="Start decaying every epoch after and including this epoch")
-    parser.add_argument('-start_checkpoint_at', type=int, default=15, help="Start checkpointing every epoch after and including this epoch")
 
-    parser.add_argument('-report_every', type=int, default=50, help="Print stats at this interval.")
+    parser.add_argument('-start_decay_at', type=int, default=0, help="Start decaying every epoch after and including this epoch")
+    parser.add_argument('-start_checkpoint_at', type=int, default=5, help="Start checkpointing every epoch after and including this epoch")
+    parser.add_argument('-batch_report_every', type=int, default=50, help="Print stats at this interval.")
     parser.add_argument('-exp', type=str, default="", help="Name of the experiment for logging.")
 
     # loss

@@ -21,18 +21,6 @@ python src/train.py \
     -dropout_i 0.3 \
     -lock_dropout \
     -copy_prb hidden \
-    -exp django-0
-
-#CUDA_VISIBLE_DEVICES=${gpu_id} python evaluate.py \
-#    -root_dir "${work_dir}/data_model/" \
-#    -dataset ${dataset} \
-#    -split dev \
-#    -model_path "$data_dir/run.*/m_*.pt"
-
-#model_path=$(head -n1 ${data_dir}/dev_best.txt)
-
-#CUDA_VISIBLE_DEVICES=${gpu_id} python evaluate.py
-#    -root_dir "${work_dir}/data_model/"
-#    -dataset ${dataset}
-#    -split test
-#    -model_path ${model_path}
+    -batch_report_every 25 \
+    -start_checkpoint_at 5 \
+    -exp django-1

@@ -2,15 +2,14 @@
 
 import codecs
 import json
-import random as rnd
-import numpy as np
 from collections import Counter, defaultdict
-from itertools import chain, count
-from six import string_types
+from itertools import chain
 
 import torch
 import torchtext.data
 import torchtext.vocab
+from six import string_types
+
 from tree import SCode
 
 UNK_WORD = '<unk>'
@@ -27,7 +26,7 @@ RIG_WORD = '<]>'
 RIG = 5
 LFT_WORD = '<[>'
 LFT = 6
-special_token_list = [UNK_WORD, PAD_WORD, BOS_WORD, EOS_WORD, SKP_WORD, RIG_WORD, LFT_WORD]
+SPECIAL_TOKEN_LIST = [UNK_WORD, PAD_WORD, BOS_WORD, EOS_WORD, SKP_WORD, RIG_WORD, LFT_WORD]
 
 
 def get_parent_index(tk_list):
@@ -37,8 +36,8 @@ def get_parent_index(tk_list):
         r_list.append(stack[-1])
         if tk.startswith('('):
             # +1: because the parent of the top level is 0
-            stack.append(i+1)
-        elif tk ==')':
+            stack.append(i + 1)
+        elif tk == ')':
             stack.pop()
     # for EOS (</s>)
     r_list.append(0)
@@ -113,8 +112,8 @@ def merge_vocabs(vocabs, min_freq=0, vocab_size=None):
     for vocab in vocabs:
         merged += filter_counter(vocab.freqs, min_freq)
     return torchtext.vocab.Vocab(merged,
-                                 specials=list(special_token_list),
-                                 max_size=vocab_size, min_freq=min_freq)
+        specials=list(SPECIAL_TOKEN_LIST),
+        max_size=vocab_size, min_freq=min_freq)
 
 
 def join_dicts(*args):
@@ -135,7 +134,7 @@ class OrderedIterator(torchtext.data.Iterator):
         else:
             self.batches = []
             for b in torchtext.data.batch(self.data(), self.batch_size,
-                                          self.batch_size_fn):
+                    self.batch_size_fn):
                 self.batches.append(sorted(b, key=self.sort_key))
 
 
@@ -145,6 +144,7 @@ def _preprocess_json(js, opt):
     js['lay_skip'] = t.layout(add_skip=True)
     assert len(t.target()) == len(js['lay_skip']), (list(zip(t.target(), js['lay_skip'])), ' '.join(js['tgt']))
     js['tgt'] = t.target()
+
 
 def read_anno_json(anno_path, opt):
     with codecs.open(anno_path, "r", "utf-8") as corpus_file:
@@ -225,7 +225,9 @@ class TableDataset(torchtext.data.Dataset):
         tgt_copy_ext_examples = self._construct_examples(tgt_copy_ext_data, 'tgt_copy_ext')
 
         # examples: one for each src line or (src, tgt) line pair.
-        examples = [join_dicts(*it) for it in zip(src_examples, lay_examples, lay_e_examples, lay_index_examples, lay_parent_index_examples, copy_to_tgt_examples, copy_to_ext_examples, tgt_mask_examples, tgt_examples, tgt_parent_index_examples, tgt_loss_examples, tgt_copy_ext_examples)]
+        examples = [join_dicts(*it) for it in
+                    zip(src_examples, lay_examples, lay_e_examples, lay_index_examples, lay_parent_index_examples, copy_to_tgt_examples, copy_to_ext_examples, tgt_mask_examples,
+                        tgt_examples, tgt_parent_index_examples, tgt_loss_examples, tgt_copy_ext_examples)]
         # the examples should not contain None
         len_before_filter = len(examples)
         examples = list(filter(lambda x: all(
@@ -234,7 +236,7 @@ class TableDataset(torchtext.data.Dataset):
         num_filter = len_before_filter - len_after_filter
         if num_filter > 0:
             print('Filter #examples (with None): {} / {} = {:.2%}'.format(num_filter,
-                                                                          len_before_filter, num_filter / len_before_filter))
+                len_before_filter, num_filter / len_before_filter))
 
         # Peek at the first to see which fields are used.
         ex = examples[0]
@@ -261,7 +263,7 @@ class TableDataset(torchtext.data.Dataset):
         """
         if field in ('src', 'lay'):
             lines = (line[field] for line in js_list)
-        elif field in ('copy_to_tgt','copy_to_ext'):
+        elif field in ('copy_to_tgt', 'copy_to_ext'):
             lines = (line['src'] for line in js_list)
         elif field in ('tgt',):
             def _tgt(line):
@@ -272,6 +274,7 @@ class TableDataset(torchtext.data.Dataset):
                     else:
                         r_list.append(PAD_WORD)
                 return r_list
+
             lines = (_tgt(line) for line in js_list)
         elif field in ('tgt_copy_ext',):
             def _tgt_copy_ext(line):
@@ -283,6 +286,7 @@ class TableDataset(torchtext.data.Dataset):
                     else:
                         r_list.append(UNK_WORD)
                 return r_list
+
             lines = (_tgt_copy_ext(line) for line in js_list)
         elif field in ('tgt_loss',):
             lines = (get_tgt_loss(line, False) for line in js_list)
@@ -299,7 +303,8 @@ class TableDataset(torchtext.data.Dataset):
         for line in lines:
             yield line
 
-    def _construct_examples(self, lines, side):
+    @staticmethod
+    def _construct_examples(lines, side):
         for words in lines:
             example_dict = {side: words}
             yield example_dict
@@ -311,17 +316,19 @@ class TableDataset(torchtext.data.Dataset):
         self.__dict__.update(d)
 
     def __reduce_ex__(self, proto):
-        "This is a hack. Something is broken with torch pickle."
+        """This is a hack. Something is broken with torch pickle."""
         return super(TableDataset, self).__reduce_ex__()
 
     @staticmethod
-    def load_fields(vocab):
+    def load_fields(vocab: list):
         vocab = dict(vocab)
         fields = TableDataset.get_fields()
+
         for k, v in vocab.items():
             # Hack. Can't pickle defaultdict :(
             v.stoi = defaultdict(lambda: 0, v.stoi)
             fields[k].vocab = v
+
         return fields
 
     @staticmethod
@@ -335,32 +342,21 @@ class TableDataset(torchtext.data.Dataset):
 
     @staticmethod
     def get_fields():
-        fields = {}
-        fields["src"] = torchtext.data.Field(
-            pad_token=PAD_WORD, include_lengths=True)
-        fields["lay"] = torchtext.data.Field(
-            init_token=BOS_WORD, include_lengths=True, eos_token=EOS_WORD, pad_token=PAD_WORD)
-        fields["lay_e"] = torchtext.data.Field(
-            include_lengths=False, pad_token=PAD_WORD)
-        fields["lay_index"] = torchtext.data.Field(
-            use_vocab=False, pad_token=0)
-        fields["lay_parent_index"] = torchtext.data.Field(
-            use_vocab=False, pad_token=0)
-        fields["copy_to_tgt"] = torchtext.data.Field(pad_token=UNK_WORD)
-        fields["copy_to_ext"] = torchtext.data.Field(pad_token=UNK_WORD)
-        fields["tgt_mask"] = torchtext.data.Field(
-            use_vocab=False, tensor_type=torch.FloatTensor, pad_token=1)
-        fields["tgt"] = torchtext.data.Field(
-            init_token=BOS_WORD, eos_token=EOS_WORD, pad_token=PAD_WORD)
-        fields["tgt_copy_ext"] = torchtext.data.Field(
-            init_token=UNK_WORD, eos_token=UNK_WORD, pad_token=UNK_WORD)
-        fields["tgt_parent_index"] = torchtext.data.Field(
-            use_vocab=False, pad_token=0)
-        fields["tgt_loss"] = torchtext.data.Field(
-            init_token=BOS_WORD, eos_token=EOS_WORD, pad_token=PAD_WORD)
-        fields["indices"] = torchtext.data.Field(
-            use_vocab=False, sequential=False)
-        return fields
+        return {
+            "src"             : torchtext.data.Field(pad_token=PAD_WORD, include_lengths=True),
+            "lay"             : torchtext.data.Field(init_token=BOS_WORD, include_lengths=True, eos_token=EOS_WORD, pad_token=PAD_WORD),
+            "lay_e"           : torchtext.data.Field(include_lengths=False, pad_token=PAD_WORD),
+            "lay_index"       : torchtext.data.Field(use_vocab=False, pad_token=0),
+            "lay_parent_index": torchtext.data.Field(use_vocab=False, pad_token=0),
+            "copy_to_tgt"     : torchtext.data.Field(pad_token=UNK_WORD),
+            "copy_to_ext"     : torchtext.data.Field(pad_token=UNK_WORD),
+            "tgt_mask"        : torchtext.data.Field(use_vocab=False, tensor_type=torch.FloatTensor, pad_token=1),
+            "tgt"             : torchtext.data.Field(init_token=BOS_WORD, eos_token=EOS_WORD, pad_token=PAD_WORD),
+            "tgt_copy_ext"    : torchtext.data.Field(init_token=UNK_WORD, eos_token=UNK_WORD, pad_token=UNK_WORD),
+            "tgt_parent_index": torchtext.data.Field(use_vocab=False, pad_token=0),
+            "tgt_loss"        : torchtext.data.Field(init_token=BOS_WORD, eos_token=EOS_WORD, pad_token=PAD_WORD),
+            "indices"         : torchtext.data.Field(use_vocab=False, sequential=False),
+        }
 
     @staticmethod
     def build_vocab(train, dev, test, opt):
@@ -391,12 +387,13 @@ class TableDataset(torchtext.data.Dataset):
         tgt_merge = merge_vocabs([fields[field_name].vocab for field_name in tgt_merge_name_list], min_freq=opt.tgt_words_min_frequency)
         for field_name in tgt_merge_name_list:
             fields[field_name].vocab = tgt_merge
-        
+
         fields['copy_to_tgt'].vocab = fields['tgt'].vocab
-        # fields['src_all'].vocab - fields['tgt'].vocab
+
         cnt_ext = Counter()
         for k in src_vocab_all:
             if k not in fields['tgt'].vocab.stoi:
                 cnt_ext[k] = 1
-        fields['copy_to_ext'].vocab = torchtext.vocab.Vocab(cnt_ext, specials=list(special_token_list), min_freq=0)
+
+        fields['copy_to_ext'].vocab = torchtext.vocab.Vocab(cnt_ext, specials=list(SPECIAL_TOKEN_LIST), min_freq=0)
         fields['tgt_copy_ext'].vocab = fields['copy_to_ext'].vocab

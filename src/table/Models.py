@@ -15,7 +15,7 @@ from table.Utils import argmax
 
 def _build_rnn(rnn_type, input_size, hidden_size, num_layers, dropout, weight_dropout, bidirectional=False):
     rnn = getattr(nn, rnn_type)(input_size, hidden_size,
-                                num_layers=num_layers, dropout=dropout, bidirectional=bidirectional)
+        num_layers=num_layers, dropout=dropout, bidirectional=bidirectional)
     if weight_dropout > 0:
         param_list = ['weight_hh_l' + str(i) for i in range(num_layers)]
         if bidirectional:
@@ -47,7 +47,7 @@ class RNNEncoder(nn.Module):
         if ent_embedding is not None:
             input_size += ent_embedding.embedding_dim
         self.rnn = _build_rnn(rnn_type, input_size,
-                              hidden_size // num_directions, num_layers, dropout, weight_dropout, bidirectional)
+            hidden_size // num_directions, num_layers, dropout, weight_dropout, bidirectional)
 
     def forward(self, input, lengths=None, hidden=None, ent=None):
         if self.training and (self.dropword > 0):
@@ -93,7 +93,8 @@ def encode_unsorted_batch(encoder, tbl, tbl_len):
 
 
 class SeqDecoder(nn.Module):
-    def __init__(self, rnn_type, bidirectional_encoder, num_layers, embeddings, input_size, hidden_size, attn_type, attn_hidden, dropout, dropout_i, lock_dropout, dropword, weight_dropout):
+    def __init__(self, rnn_type, bidirectional_encoder, num_layers, embeddings, input_size, hidden_size, attn_type, attn_hidden, dropout, dropout_i, lock_dropout, dropword,
+                 weight_dropout):
         super(SeqDecoder, self).__init__()
 
         # Basic attributes.
@@ -111,7 +112,7 @@ class SeqDecoder(nn.Module):
 
         # Build the RNN.
         self.rnn = _build_rnn(rnn_type, input_size,
-                              hidden_size, num_layers, dropout, weight_dropout)
+            hidden_size, num_layers, dropout, weight_dropout)
 
         # Set up the standard attention.
         self.attn = table.modules.GlobalAttention(
@@ -207,10 +208,10 @@ class SeqDecoder(nn.Module):
         # Calculate the attention.
         attn_outputs, attn_scores, concat_c = self.attn(
             rnn_output.transpose(0, 1).contiguous(),  # (output_len, batch, d)
-            context.transpose(0, 1)                   # (contxt_len, batch, d)
+            context.transpose(0, 1)  # (contxt_len, batch, d)
         )
 
-        outputs = attn_outputs    # (input_len, batch, d)
+        outputs = attn_outputs  # (input_len, batch, d)
 
         # Return result.
         return hidden, outputs, attn_scores, rnn_output, concat_c
@@ -289,7 +290,7 @@ class CoAttention(nn.Module):
         self.no_pack_padded_seq = False
 
         self.rnn = _build_rnn(rnn_type, hidden_size + context_size, hidden_size //
-                              num_directions, num_layers, dropout, weight_dropout, bidirectional)
+                                        num_directions, num_layers, dropout, weight_dropout, bidirectional)
         self.attn = table.modules.GlobalAttention(
             hidden_size, False, attn_type=attn_type, attn_hidden=attn_hidden, context_size=context_size)
 
@@ -300,9 +301,9 @@ class QCoAttention(CoAttention):
         if self.linear_context is not None:
             lay_all = self.linear_context(lay_all)
         # attention
-        emb, _,_ = self.attn(
+        emb, _, _ = self.attn(
             q_all.transpose(0, 1).contiguous(),  # (output_len, batch, d)
-            lay_all.transpose(0, 1)              # (contxt_len, batch, d)
+            lay_all.transpose(0, 1)  # (contxt_len, batch, d)
         )
 
         # feed to rnn
@@ -338,9 +339,9 @@ class LayCoAttention(CoAttention):
         if self.linear_context is not None:
             q_all = self.linear_context(q_all)
         # attention
-        emb, _,_ = self.attn(
+        emb, _, _ = self.attn(
             lay_all.transpose(0, 1).contiguous(),  # (output_len, batch, d)
-            q_all.transpose(0, 1)              # (contxt_len, batch, d)
+            q_all.transpose(0, 1)  # (contxt_len, batch, d)
         )
 
         # feed to rnn
@@ -428,7 +429,7 @@ class CopyGenerator(nn.Module):
         copy_to_ext_onehot = onehot(
             copy_to_ext, N=len(self.ext_dict), ignore_index=self.ext_dict.stoi[table.IO.UNK_WORD]).float()
         ext_copy_prob = torch.bmm(mul_attn.view(-1, batch, slen).transpose(0, 1),
-                                  copy_to_ext_onehot.transpose(0, 1)).transpose(0, 1).contiguous().view(-1, len(self.ext_dict))
+            copy_to_ext_onehot.transpose(0, 1)).transpose(0, 1).contiguous().view(-1, len(self.ext_dict))
         ext_copy_prob_log = safe_log(ext_copy_prob)
 
         return torch.cat([prob_log, ext_copy_prob_log], 1).view(dec_seq_len, batch_size, -1)
@@ -437,14 +438,16 @@ class CopyGenerator(nn.Module):
         copy_to_tgt_onehot = onehot(
             copy_to_tgt, N=len(self.tgt_dict), ignore_index=self.tgt_dict.stoi[table.IO.UNK_WORD]).float()
         tgt_add_copy_prob = torch.bmm(mul_attn.view(-1, batch, slen).transpose(0, 1),
-                                      copy_to_tgt_onehot.transpose(0, 1)).transpose(0, 1).contiguous().view(-1, len(self.tgt_dict))
+            copy_to_tgt_onehot.transpose(0, 1)).transpose(0, 1).contiguous().view(-1, len(self.tgt_dict))
         out_prob = torch.exp(out_prob_log) + tgt_add_copy_prob
 
         return torch.log(torch.cat([out_prob, ext_copy_prob], 1)).view(dec_seq_len, batch_size, -1)
 
 
 class ParserModel(nn.Module):
-    def __init__(self, q_encoder, q_token_encoder, token_pruner, lay_decoder, lay_classifier, lay_encoder, q_co_attention, lay_co_attention, tgt_embeddings, tgt_decoder, tgt_classifier, model_opt):
+    def __init__(self, q_encoder, q_token_encoder, token_pruner, lay_decoder, lay_classifier,
+                 lay_encoder, q_co_attention, lay_co_attention, tgt_embeddings,
+                 tgt_decoder, tgt_classifier, model_opt):
         super(ParserModel, self).__init__()
 
         if model_opt.seprate_encoder:
@@ -475,8 +478,7 @@ class ParserModel(nn.Module):
         batch_size = q.size(1)
         decoder.attn.applyMaskBySeqBatch(q)
         q_state = decoder.init_decoder_state(q_all, q_enc)
-        dec_all, _, attn_scores, _, _ = decoder(
-            inp, q_all, q_state, parent_index)
+        dec_all, _, attn_scores, _, _ = decoder(inp, q_all, q_state, parent_index)
         dec_seq_len = dec_all.size(0)
         dec_all = dec_all.view(dec_seq_len * batch_size, -1)
         dec_out = classifier(dec_all)
@@ -487,10 +489,8 @@ class ParserModel(nn.Module):
         batch_size = q.size(1)
         decoder.attn.applyMaskBySeqBatch(q)
         q_state = decoder.init_decoder_state(q_all, q_enc)
-        dec_all, _, attn_scores, dec_rnn_output, concat_c = decoder(
-            inp, q_all, q_state, parent_index)
-        dec_out = classifier(dec_all, dec_rnn_output,
-                             concat_c, attn_scores, copy_to_ext, copy_to_tgt)
+        dec_all, _, attn_scores, dec_rnn_output, concat_c = decoder(inp, q_all, q_state, parent_index)
+        dec_out = classifier(dec_all, dec_rnn_output, concat_c, attn_scores, copy_to_ext, copy_to_tgt)
         return dec_out, attn_scores
 
     def forward(self, q, q_len, ent, lay, lay_e, lay_len, lay_index, tgt_mask, tgt, lay_parent_index, tgt_parent_index, copy_to_ext, copy_to_tgt):
@@ -498,8 +498,7 @@ class ParserModel(nn.Module):
         # encoding
         q_enc, q_all = self.q_encoder(q, lengths=q_len, ent=ent)
         if self.opt.seprate_encoder:
-            q_tgt_enc, q_tgt_all = self.q_tgt_encoder(
-                q, lengths=q_len, ent=ent)
+            q_tgt_enc, q_tgt_all = self.q_tgt_encoder(q, lengths=q_len, ent=ent)
         else:
             q_tgt_enc, q_tgt_all = q_enc, q_all
 
@@ -508,8 +507,7 @@ class ParserModel(nn.Module):
             # (num_layers * num_directions, batch, hidden_size)
             q_token_ht, __ = q_token_enc
             batch_size = q_token_ht.size(1)
-            q_token_ht = q_token_ht[-1] if not self.opt.brnn else q_token_ht[-2:].transpose(
-                0, 1).contiguous().view(batch_size, -1)
+            q_token_ht = q_token_ht[-1] if not self.opt.brnn else q_token_ht[-2:].transpose(0, 1).contiguous().view(batch_size, -1)
             token_out = self.token_pruner(q_token_ht).t()
         else:
             token_out = None
@@ -524,7 +522,7 @@ class ParserModel(nn.Module):
             # targetL_, batch_, sourceL_ = lay_attn_scores.size()
             coverage_T = lay_attn_scores.mean(0, keepdim=False)
             loss_coverage = (0.7 / Variable(lay_len.unsqueeze(1).float(),
-                                            requires_grad=False) - coverage_T).clamp(min=0).masked_select(q_mask).sum()
+                requires_grad=False) - coverage_T).clamp(min=0).masked_select(q_mask).sum()
         else:
             loss_coverage = None
 
@@ -551,7 +549,7 @@ class ParserModel(nn.Module):
         # (tgt_len, batch) -> (tgt_len, batch, lay_size)
         tgt_mask_expand = tgt_mask.unsqueeze(2).expand_as(tgt_inp_emb)
         dec_inp = tgt_inp_emb.mul(tgt_mask_expand) + \
-            lay_select.mul(1 - tgt_mask_expand)
+                  lay_select.mul(1 - tgt_mask_expand)
 
         # co-attention
         if self.q_co_attention is not None:
