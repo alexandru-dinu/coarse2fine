@@ -2,8 +2,10 @@ from __future__ import division
 
 import argparse
 import os
+from argparse import Namespace
 
 import torch
+from tensorboardX import SummaryWriter
 
 import cli_logger
 import options
@@ -12,20 +14,19 @@ import table.ModelConstructor
 import table.Models
 import table.modules
 from table.Utils import set_seed
-from tensorboardX import SummaryWriter
-from argparse import Namespace
 
 arg_parser = argparse.ArgumentParser()
 
+options.set_common_options(arg_parser)
 options.set_model_options(arg_parser)
 options.set_train_options(arg_parser)
 
 args = arg_parser.parse_args()
 
-args.data = os.path.join(args.root_dir, args.dataset)
-
 # experiment
-EXP_BASE_DIR = "./experiments/%s" % args.exp
+args.dataset_dir = os.path.join(args.root_dir, args.dataset)
+
+EXP_BASE_DIR = "./experiments/%s" % args.exp_name
 
 os.makedirs(EXP_BASE_DIR, exist_ok=True)
 os.makedirs(os.path.join(EXP_BASE_DIR, "tb-logs"), exist_ok=True)
@@ -53,9 +54,9 @@ if args.layers != -1:
     args.dec_layers = args.layers
 
 args.brnn = (args.encoder_type == "brnn")
-args.pre_word_vecs = os.path.join(args.data, 'embedding')
 
 set_seed(args.seed)
+cli_logger.info("Using seed: %d" % args.seed)
 
 
 def report_func(epoch: int, batch: int, num_batches: int, start_time: float, lr: float, report_stats: table.Statistics):
@@ -84,7 +85,7 @@ def report_func(epoch: int, batch: int, num_batches: int, start_time: float, lr:
 
 
 def load_fields(train_data, valid_data, checkpoint):
-    fields = table.IO.TableDataset.load_fields(torch.load(os.path.join(args.data, 'vocab.pt')))
+    fields = table.IO.TableDataset.load_fields(torch.load(os.path.join(args.dataset_dir, 'vocab.pt')))
     fields = dict([(k, f) for (k, f) in fields.items() if k in train_data.examples[0].__dict__])
 
     train_data.fields = fields
@@ -97,9 +98,8 @@ def load_fields(train_data, valid_data, checkpoint):
     return fields
 
 
-def build_model(model_opt, fields, checkpoint):
-    # defaults on cuda
-    model = table.ModelConstructor.make_base_model(model_opt, fields, checkpoint)
+def build_model(model_args, fields, checkpoint):
+    model = table.ModelConstructor.make_base_model(model_args, fields, checkpoint)
 
     return model
 
@@ -133,11 +133,11 @@ def train(model, train_data, valid_data, fields, optim):
     summary_writer = SummaryWriter(os.path.join(EXP_BASE_DIR, "tb-logs"))
 
     train_iter = table.IO.OrderedIterator(
-        dataset=train_data, batch_size=args.batch_size, device=args.gpuid[0], repeat=False
+        dataset=train_data, batch_size=args.batch_size, device=args.gpu_id[0], repeat=False
     )
 
     valid_iter = table.IO.OrderedIterator(
-        dataset=valid_data, batch_size=args.batch_size, device=args.gpuid[0], train=False, sort=True, sort_within_batch=False
+        dataset=valid_data, batch_size=args.batch_size, device=args.gpu_id[0], train=False, sort=True, sort_within_batch=False
     )
 
     train_loss = table.Loss.LossCompute(smooth_eps=model.opt.smooth_eps).cuda()
@@ -174,10 +174,10 @@ def train(model, train_data, valid_data, fields, optim):
 
 
 def main():
-    cli_logger.info("Loading train and valid data from %s" % args.data)
+    cli_logger.info("Loading train and valid data from %s" % args.dataset_dir)
 
-    train_data = torch.load(os.path.join(args.data, 'train.pt'))
-    valid_data = torch.load(os.path.join(args.data, 'valid.pt'))
+    train_data = torch.load(os.path.join(args.dataset_dir, 'train.pt'))
+    valid_data = torch.load(os.path.join(args.dataset_dir, 'valid.pt'))
 
     cli_logger.info(' * number of training sentences: %d' % len(train_data))
     cli_logger.info(' * maximum batch size: %d' % args.batch_size)
@@ -186,18 +186,18 @@ def main():
         cli_logger.info('Loading checkpoint from %s' % args.train_from)
 
         checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
-        model_opt = checkpoint['opt']
+        model_args = checkpoint['opt']
 
         args.start_epoch = checkpoint['epoch'] + 1
     else:
         checkpoint = None
-        model_opt = args
+        model_args = args
 
     cli_logger.info("Loading fields generated from preprocessing phase")
     fields = load_fields(train_data, valid_data, checkpoint)
 
     cli_logger.info("Building model")
-    model = build_model(model_opt, fields, checkpoint)
+    model = build_model(model_args, fields, checkpoint)
 
     cli_logger.info("Building optimizer")
     optim = build_optimizer(model, checkpoint)

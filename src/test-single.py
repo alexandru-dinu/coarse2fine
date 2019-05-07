@@ -1,8 +1,6 @@
 from __future__ import division
 
 import argparse
-import glob
-import os
 
 import torch
 
@@ -10,26 +8,20 @@ import options
 import table
 import table.IO
 
-arg_parser = argparse.ArgumentParser(description='evaluate.py')
+arg_parser = argparse.ArgumentParser()
+options.set_common_options(arg_parser)
+options.set_model_options(arg_parser)
 options.set_translation_options(arg_parser)
 args = arg_parser.parse_args()
 
-torch.cuda.set_device(args.gpu)
-
-# TODO: don't hardcode, add arg
-args.pre_word_vecs = os.path.join(args.root_dir, args.dataset, 'embedding')
-# args.pre_word_vecs = args.root_dir
+if args.cuda:
+    torch.cuda.set_device(args.gpu_id[0])
 
 if args.beam_size > 0:
     args.batch_size = 1
 
 
 def main():
-    dummy_parser = argparse.ArgumentParser()
-    options.set_model_options(dummy_parser)
-    options.set_train_options(dummy_parser)
-    dummy_opt = dummy_parser.parse_known_args([])[0]
-
     js_list = [
         table.IO.preprocess_json({
             "token": ["SomeMethod", "(", "min", ",", "max", ")"],
@@ -41,10 +33,14 @@ def main():
 
     metric_name_list = ['tgt']
 
-    args.model = args.model_path
-    translator = table.Translator(args, dummy_opt.__dict__)
+    args.model = args.model_path  # TODO??
+    translator = table.Translator(args)
     data = table.IO.TableDataset(js_list, translator.fields, 0, None, False)
-    test_data = table.IO.OrderedIterator(dataset=data, device=args.gpu, batch_size=args.batch_size, train=False, sort=True, sort_within_batch=False)
+
+    test_data = table.IO.OrderedIterator(
+        dataset=data, device=args.gpu_id[0] if args.cuda else -1,
+        batch_size=args.batch_size, train=False, sort=True, sort_within_batch=False
+    )
 
     # inference
     r_list = []

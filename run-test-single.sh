@@ -9,8 +9,10 @@ data_dir=${base_dir}/data_model/${dataset}
 python src/test-single.py \
     -root_dir "${base_dir}/data_model/" \
     -dataset ${dataset} \
-    -model_path ${model_path}
-
+    -model_path ${model_path} \
+    -use_custom_embeddings \
+    -word_embeddings "${base_dir}/data_model/glove-fine-tuned-5000" \
+    -word_emb_size 300
 
 #CUDA_VISIBLE_DEVICES=${gpu_id} python evaluate.py \
 #    -root_dir "${work_dir}/data_model/" \

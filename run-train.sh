@@ -9,7 +9,7 @@ python src/train.py \
     -root_dir "${base_dir}/data_model/" \
     -dataset ${dataset} \
     -rnn_size 300 \
-    -word_vec_size 250 \
+    -word_emb_size 250 \
     -decoder_input_size 200 \
     -layers 1 \
     -start_checkpoint_at 15 \
@@ -23,5 +23,8 @@ python src/train.py \
     -copy_prb hidden \
     -batch_report_every 25 \
     -start_checkpoint_at 5 \
-    -word_vec_size 300 \
-    -exp django-ft-embs-5000
+    -word_emb_size 300 \
+    -exp_name django-ft-embs-5000 \
+    -use_custom_embeddings -word_embeddings ../data_model/glove-fine-tuned-1000 \
+    -word_emb_size 300 \
+    -cuda

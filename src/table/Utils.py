@@ -38,15 +38,15 @@ def argmax(scores):
 
 
 def topk(scores, k):
-    return scores.topk(k, dim = scores.dim() - 1)[1]
+    return scores.topk(k, dim=scores.dim() - 1)[1]
 
 
-def add_pad(b_list, pad_index, return_tensor=True):
+def add_pad(b_list, pad_index, return_tensor=True, cuda=False):
     max_len = max((len(b) for b in b_list))
     r_list = []
     for b in b_list:
         r_list.append(b + [pad_index] * (max_len - len(b)))
     if return_tensor:
-        return torch.LongTensor(r_list).cuda()
+        return torch.LongTensor(r_list).cuda() if cuda else torch.LongTensor(r_list)
     else:
         return r_list

@@ -78,16 +78,23 @@ class RNNEncoder(nn.Module):
         return hidden_t, outputs
 
 
-def encode_unsorted_batch(encoder, tbl, tbl_len):
+def encode_unsorted_batch(encoder, tbl, tbl_len, cuda=False):
     # sort for pack()
     idx_sorted, tbl_len_sorted, idx_map_back = sort_for_pack(tbl_len)
+
     tbl_sorted = tbl.index_select(1, Variable(
-        torch.LongTensor(idx_sorted).cuda(), requires_grad=False))
+        torch.LongTensor(idx_sorted).cuda() if cuda else torch.LongTensor(idx_sorted),
+        requires_grad=False)
+    )
+
     # tbl_context: (seq_len, batch, hidden_size * num_directions)
     __, tbl_context = encoder(tbl_sorted, tbl_len_sorted)
+
     # recover the sort for pack()
-    v_idx_map_back = Variable(torch.LongTensor(
-        idx_map_back).cuda(), requires_grad=False)
+    v_idx_map_back = Variable(
+        torch.LongTensor(idx_map_back).cuda() if cuda else torch.LongTensor(idx_map_back),
+        requires_grad=False
+    )
     tbl_context = tbl_context.index_select(1, v_idx_map_back)
     return tbl_context
 
@@ -447,10 +454,10 @@ class CopyGenerator(nn.Module):
 class ParserModel(nn.Module):
     def __init__(self, q_encoder, q_token_encoder, token_pruner, lay_decoder, lay_classifier,
                  lay_encoder, q_co_attention, lay_co_attention, tgt_embeddings,
-                 tgt_decoder, tgt_classifier, model_opt):
+                 tgt_decoder, tgt_classifier, model_args):
         super(ParserModel, self).__init__()
 
-        if model_opt.seprate_encoder:
+        if model_args.separate_encoder:
             self.q_encoder, self.q_tgt_encoder = q_encoder
         else:
             self.q_encoder = q_encoder
@@ -465,12 +472,12 @@ class ParserModel(nn.Module):
         self.tgt_embeddings = tgt_embeddings
         self.tgt_decoder = tgt_decoder
         self.tgt_classifier = tgt_classifier
-        self.opt = model_opt
+        self.args = model_args
 
     def enc_to_ht(self, q_enc, batch_size):
         # (num_layers * num_directions, batch, hidden_size)
         q_ht, q_ct = q_enc
-        q_ht = q_ht[-1] if not self.opt.brnn else q_ht[-2:].transpose(
+        q_ht = q_ht[-1] if not self.args.brnn else q_ht[-2:].transpose(
             0, 1).contiguous().view(batch_size, -1).unsqueeze(0)
         return q_ht
 
@@ -498,7 +505,7 @@ class ParserModel(nn.Module):
 
         # encoding
         q_enc, q_all = self.q_encoder(q, lengths=q_len, ent=ent)
-        if self.opt.seprate_encoder:
+        if self.args.separate_encoder:
             q_tgt_enc, q_tgt_all = self.q_tgt_encoder(q, lengths=q_len, ent=ent)
         else:
             q_tgt_enc, q_tgt_all = q_enc, q_all
@@ -508,7 +515,7 @@ class ParserModel(nn.Module):
             # (num_layers * num_directions, batch, hidden_size)
             q_token_ht, __ = q_token_enc
             batch_size = q_token_ht.size(1)
-            q_token_ht = q_token_ht[-1] if not self.opt.brnn else q_token_ht[-2:].transpose(0, 1).contiguous().view(batch_size, -1)
+            q_token_ht = q_token_ht[-1] if not self.args.brnn else q_token_ht[-2:].transpose(0, 1).contiguous().view(batch_size, -1)
             token_out = self.token_pruner(q_token_ht).t()
         else:
             token_out = None
@@ -518,7 +525,7 @@ class ParserModel(nn.Module):
         lay_out, lay_attn_scores = self.run_decoder(
             self.lay_decoder, self.lay_classifier, q, q_all, q_enc, dec_in_lay, lay_parent_index)
 
-        if self.opt.coverage_loss > 0:
+        if self.args.coverage_loss > 0:
             q_mask = Variable(q.data.ne(table.IO.PAD).t(), requires_grad=False)
             # targetL_, batch_, sourceL_ = lay_attn_scores.size()
             coverage_T = lay_attn_scores.mean(0, keepdim=False)
@@ -531,11 +538,10 @@ class ParserModel(nn.Module):
         # data used for layout encoding
         lay_e_len = lay_len - 2
         # (lay_len, batch, lay_size)
-        if self.opt.no_lay_encoder:
+        if self.args.no_lay_encoder:
             lay_all = self.lay_encoder(lay_e)
         else:
-            lay_all = encode_unsorted_batch(
-                self.lay_encoder, lay_e, lay_e_len)
+            lay_all = encode_unsorted_batch(self.lay_encoder, lay_e, lay_e_len, cuda=self.args.cuda)
         # co-attention
         if self.lay_co_attention is not None:
             lay_all = self.lay_co_attention(lay_all, lay_e_len, q_all, q)

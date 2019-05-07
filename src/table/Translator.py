@@ -86,7 +86,7 @@ def get_decode_batch_length(dec, batch_size, max_sent_length):
 
 
 # ['(airline:e@1', '(argmin', '(and', 'flight@1', 'from@2', 'to@2', 'day_number@2', 'month@2', ')', 'fare@1', ')', ')']
-def expand_layout_with_skip(lay_list):
+def expand_layout_with_skip(lay_list, cuda=False):
     lay_skip_list, tgt_mask_list, lay_index_list = [], [], []
     for lay in lay_list:
         lay_skip = []
@@ -103,41 +103,45 @@ def expand_layout_with_skip(lay_list):
         tgt_mask_list.append(table.IO.get_tgt_mask(lay_skip))
         # lay_index
         lay_index_list.append(table.IO.get_lay_index(lay_skip))
-    tgt_mask_seq = add_pad(tgt_mask_list, 1).float().t()
-    lay_index_seq = add_pad(lay_index_list, 0).t()
+    tgt_mask_seq = add_pad(tgt_mask_list, pad_index=1, cuda=cuda).float().t()
+    lay_index_seq = add_pad(lay_index_list, pad_index=0, cuda=cuda).t()
     return lay_skip_list, tgt_mask_seq, lay_index_seq
 
 
 class Translator(object):
-    def __init__(self, opt, dummy_opt={}):
+    def __init__(self, args):
         # Add in default model arguments, possibly added since training.
-        self.opt = opt
-        checkpoint = torch.load(opt.model, map_location=lambda storage, loc: storage)
+        self.args = args
+        checkpoint = torch.load(args.model, map_location=lambda storage, loc: storage)
         self.fields = table.IO.TableDataset.load_fields(checkpoint['vocab'])
 
-        model_opt = checkpoint['opt']
-        model_opt.pre_word_vecs = opt.pre_word_vecs
-        for arg in dummy_opt:
-            if arg not in model_opt:
-                model_opt.__dict__[arg] = dummy_opt[arg]
+        model_args = checkpoint['opt']
 
-        self.model = table.ModelConstructor.make_base_model(model_opt, self.fields, checkpoint)
+        for arg in args.__dict__:
+            if arg not in model_args:
+                model_args.__dict__[arg] = args.__dict__[arg]
+
+        self.model = table.ModelConstructor.make_base_model(model_args, self.fields, checkpoint)
         self.model.eval()
 
-        if model_opt.moving_avg > 0:
+        if model_args.moving_avg > 0:
             for p, avg_p in zip(self.model.parameters(), checkpoint['moving_avg']):
                 p.data.copy_(avg_p)
 
-        if opt.attn_ignore_small > 0:
-            self.model.lay_decoder.attn.ignore_small = opt.attn_ignore_small
-            self.model.tgt_decoder.attn.ignore_small = opt.attn_ignore_small
+        if args.attn_ignore_small > 0:
+            self.model.lay_decoder.attn.ignore_small = args.attn_ignore_small
+            self.model.tgt_decoder.attn.ignore_small = args.attn_ignore_small
 
     def run_lay_decoder(self, decoder, classifier, q, q_all, q_enc, max_dec_len, vocab_mask, vocab):
         batch_size = q.size(1)
         decoder.attn.applyMaskBySeqBatch(q)
         dec_list = []
         dec_state = decoder.init_decoder_state(q_all, q_enc)
-        inp = torch.LongTensor(1, batch_size).fill_(table.IO.BOS).cuda()
+
+        inp = torch.LongTensor(1, batch_size).fill_(table.IO.BOS)
+        if self.args.cuda:
+            inp = inp.cuda()
+
         for i in range(max_dec_len):
             inp = v_eval(inp)
             parent_index = None
@@ -162,8 +166,15 @@ class Translator(object):
         decoder.attn.applyMaskBySeqBatch(q)
         dec_list = []
         dec_state = decoder.init_decoder_state(q_all, q_enc)
-        inp = torch.LongTensor(1, batch_size).fill_(table.IO.BOS).cuda()
-        batch_index = torch.LongTensor(range(batch_size)).unsqueeze_(0).cuda()
+
+        inp = torch.LongTensor(1, batch_size).fill_(table.IO.BOS)
+        if self.args.cuda:
+            inp = inp.cuda()
+
+        batch_index = torch.LongTensor(range(batch_size)).unsqueeze_(0)
+        if self.args.cuda:
+            batch_index = batch_index.cuda()
+
         for i in range(min(max_dec_len, lay_index_seq.size(0))):
             # (1, batch)
             lay_index = lay_index_seq[i].unsqueeze(0)
@@ -172,8 +183,7 @@ class Translator(object):
             tgt_inp_emb = embeddings(v_eval(inp))
             tgt_mask_expand = v_eval(tgt_mask_seq[i].unsqueeze(
                 0).unsqueeze(2).expand_as(tgt_inp_emb))
-            inp = tgt_inp_emb.mul(tgt_mask_expand) + \
-                  lay_select.mul(1 - tgt_mask_expand)
+            inp = tgt_inp_emb.mul(tgt_mask_expand) + lay_select.mul(1 - tgt_mask_expand)
             parent_index = None
             dec_all, dec_state, attn_scores, dec_rnn_output, concat_c = decoder(
                 inp, q_all, dec_state, parent_index)
@@ -192,26 +202,29 @@ class Translator(object):
 
         # encoding
         q_enc, q_all = self.model.q_encoder(q, lengths=q_len, ent=None)
-        if self.model.opt.seprate_encoder:
-            q_tgt_enc, q_tgt_all = self.model.q_tgt_encoder(
-                q, lengths=q_len, ent=None)
+        if self.model.args.separate_encoder:
+            q_tgt_enc, q_tgt_all = self.model.q_tgt_encoder(q, lengths=q_len, ent=None)
         else:
             q_tgt_enc, q_tgt_all = q_enc, q_all
 
         vocab_mask = None
-        layout_token_prune_list = [None for b in range(batch_size)]
+        layout_token_prune_list = [None for _ in range(batch_size)]
 
         # layout decoding
         lay_dec = self.run_lay_decoder(
-            self.model.lay_decoder, self.model.lay_classifier, q, q_all, q_enc, self.opt.max_lay_len, vocab_mask, self.fields['lay'].vocab)
-        if self.opt.gold_layout:
+            self.model.lay_decoder, self.model.lay_classifier, q, q_all, q_enc, self.args.max_lay_len, vocab_mask, self.fields['lay'].vocab
+        )
+        if self.args.gold_layout:
             lay_dec = batch.lay[0].data[1:]
+
         # recover layout
         lay_list = []
         for b in range(batch_size):
             lay_field = 'lay'
-            lay = recover_layout_token([lay_dec[i, b] for i in range(
-                lay_dec.size(0))], self.fields[lay_field].vocab, lay_dec.size(0))
+            lay = recover_layout_token(
+                [lay_dec[i, b] for i in range(lay_dec.size(0))],
+                self.fields[lay_field].vocab, lay_dec.size(0)
+            )
             lay_list.append(lay)
 
         # layout encoding
@@ -222,21 +235,21 @@ class Translator(object):
         for b in range(batch_size):
             for i in range(lay_len[b]):
                 lay_dec[i, b] = self.fields['lay'].vocab.stoi[lay_list[b][i]]
-        lay_dec = v_eval(lay_dec.cuda())
+
+        lay_dec = v_eval(lay_dec.cuda()) if self.args.cuda else v_eval(lay_dec)
+
         # (lay_len, batch, lay_size)
-        if self.model.opt.no_lay_encoder:
+        if self.model.args.no_lay_encoder:
             lay_all = self.model.lay_encoder(lay_dec)
         else:
-            lay_enc_len = lay_len.cuda().clamp(min=1)
-            lay_all = encode_unsorted_batch(
-                self.model.lay_encoder, lay_dec, lay_enc_len)
+            lay_enc_len = lay_len.cuda().clamp(min=1) if self.args.cuda else lay_len.clamp(min=1)
+            lay_all = encode_unsorted_batch(self.model.lay_encoder, lay_dec, lay_enc_len, cuda=self.args.cuda)
         # co-attention
         if self.model.lay_co_attention is not None:
-            lay_all = self.model.lay_co_attention(
-                lay_all, lay_enc_len, q_all, q)
+            lay_all = self.model.lay_co_attention(lay_all, lay_enc_len, q_all, q)
 
         # get lay_index and tgt_mask: (tgt_len, batch)
-        lay_skip_list, tgt_mask_seq, lay_index_seq = expand_layout_with_skip(lay_list)
+        lay_skip_list, tgt_mask_seq, lay_index_seq = expand_layout_with_skip(lay_list, self.args.cuda)
 
         # co-attention
         if self.model.q_co_attention is not None:
@@ -244,8 +257,12 @@ class Translator(object):
                 q_tgt_all, q_len, lay_all, lay_dec)
 
         # target decoding
-        tgt_dec = self.run_tgt_decoder(self.model.tgt_embeddings, tgt_mask_seq, lay_index_seq, lay_all, self.model.tgt_decoder,
-            self.model.tgt_classifier, q, q_tgt_all, q_tgt_enc, self.opt.max_tgt_len, lay_skip_list, self.fields['tgt'].vocab, batch.copy_to_ext, batch.copy_to_tgt)
+        tgt_dec = self.run_tgt_decoder(
+            self.model.tgt_embeddings, tgt_mask_seq, lay_index_seq, lay_all,
+            self.model.tgt_decoder, self.model.tgt_classifier, q, q_tgt_all, q_tgt_enc,
+            self.args.max_tgt_len, lay_skip_list, self.fields['tgt'].vocab, batch.copy_to_ext, batch.copy_to_tgt
+        )
+
         # recover target
         tgt_list = []
         for b in range(batch_size):

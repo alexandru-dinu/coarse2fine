@@ -130,7 +130,7 @@ class Trainer(object):
         # global reporting timestep
         self.global_timestep = 0
 
-        if self.model.opt.moving_avg > 0:
+        if self.model.args.moving_avg > 0:
             self.moving_avg = deepcopy(
                 list(p.data for p in model.parameters()))
         else:
@@ -159,8 +159,8 @@ class Trainer(object):
         tgt_org_mask = batch.tgt_copy_ext.eq(fields['tgt_copy_ext'].vocab.stoi[table.IO.UNK_WORD]).long()[1:]
         gold['tgt'] = torch.mul(tgt_copy_mask, batch.tgt_copy_ext[1:] + len(fields['tgt_loss'].vocab)) + torch.mul(tgt_org_mask, batch.tgt_loss[1:])
 
-        if self.model.opt.coverage_loss > 0 and epoch > 10:
-            gold['cover'] = loss_coverage * self.model.opt.coverage_loss
+        if self.model.args.coverage_loss > 0 and epoch > 10:
+            gold['cover'] = loss_coverage * self.model.args.coverage_loss
 
         loss = criterion.compute_loss(pred, gold, mask_loss)
 
@@ -176,7 +176,7 @@ class Trainer(object):
         st = dict([(k, (v[0].sum(), v[1])) for k, v in r_dict.items()])
         st['all'] = aggregate_accuracy(r_dict, ('lay', 'tgt'))
 
-        if self.model.opt.coverage_loss > 0 and epoch > 10:
+        if self.model.args.coverage_loss > 0 and epoch > 10:
             st['attn_impor_loss'] = (gold['cover'].data[0], 1)
 
         batch_stats = Statistics(loss.data[0], st)
@@ -219,8 +219,8 @@ class Trainer(object):
                     self.global_timestep += 1
             # --
 
-            if self.model.opt.moving_avg > 0:
-                decay_rate = min(self.model.opt.moving_avg, (1 + epoch) / (1.5 + epoch))
+            if self.model.args.moving_avg > 0:
+                decay_rate = min(self.model.args.moving_avg, (1 + epoch) / (1.5 + epoch))
                 for p, avg_p in zip(self.model.parameters(), self.moving_avg):
                     avg_p.mul_(decay_rate).add_(1.0 - decay_rate, p.data)
 

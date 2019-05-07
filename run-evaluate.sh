@@ -10,8 +10,9 @@ python src/evaluate.py \
     -root_dir "${base_dir}/data_model/" \
     -dataset ${dataset} \
     -split test \
-    -model_path ${model_path}
-
+    -batch_size 2 \
+    -model_path ${model_path} \
+    -word_embeddings "${base_dir}/data_model/${dataset}/embedding"
 
 #CUDA_VISIBLE_DEVICES=${gpu_id} python evaluate.py \
 #    -root_dir "${work_dir}/data_model/" \

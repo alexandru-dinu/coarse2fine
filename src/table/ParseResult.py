@@ -34,7 +34,7 @@ class ParseResult(object):
         #     print('')
 
     def __str__(self):
-        return "idx: %s, lay: %s, tgt = %s" % (self.idx, self.lay, self.tgt)
+        return "ParseResult:\n\tidx: %s\n\tlay: %s\n\ttgt = %s" % (self.idx, self.lay, self.tgt)
 
     def __repr__(self):
         return str(self)

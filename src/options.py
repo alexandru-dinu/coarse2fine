@@ -1,3 +1,16 @@
+def set_common_options(parser):
+    # data
+    parser.add_argument('-root_dir', default='', help="Path to the root directory.")
+    parser.add_argument('-dataset', default='src', help="Name of dataset.")
+
+    # GPU
+    parser.add_argument('-cuda', action='store_true', help="Whether to use CUDA or not")
+    parser.add_argument('-gpu_id', default=[0], nargs='+', type=int, help="Use CUDA on the listed devices.")
+    parser.add_argument('-seed', type=int, default=123, help="Random seed used for the experiments reproducibility.")
+
+    return parser
+
+
 def set_model_options(parser):
     """
     These options are passed to the construction of the model.
@@ -5,12 +18,14 @@ def set_model_options(parser):
     """
 
     # Embedding Options
-    parser.add_argument('-word_vec_size', type=int, default=250, help='Word embedding for both.')
+    parser.add_argument('-use_custom_embeddings', action="store_true", help='Wheter custom embeddings (and loading) are used.')
+    parser.add_argument('-word_embeddings', type=str, help='Path to word embeddings file.')
+    parser.add_argument('-word_emb_size', type=int, default=250, help='Word embedding for both.')
     parser.add_argument('-ent_vec_size', type=int, default=0, help='Entity type embedding size.')
     parser.add_argument('-decoder_input_size', type=int, default=200, help='Layout embedding size.')
 
     # RNN Options
-    parser.add_argument('-seprate_encoder', action="store_true", help="Use different encoders for layout and target decoding.")
+    parser.add_argument('-separate_encoder', action="store_true", help="Use different encoders for layout and target decoding.")
     parser.add_argument('-encoder_type', type=str, default='brnn', choices=['rnn', 'brnn'], help="Type of encoder layer to use.")
     parser.add_argument('-decoder_type', type=str, default='rnn', choices=['rnn'], help='Type of decoder layer to use.')
     parser.add_argument('-parent_feed', type=str, default='none', choices=['none', 'input', 'output'],
@@ -52,9 +67,6 @@ def set_model_options(parser):
 
 
 def set_preprocess_options(parser):
-    parser.add_argument('-root_dir', default='', help="Path to the root directory.")
-    parser.add_argument('-dataset', default='atis', help="Name of dataset.")
-
     # Dictionary Options
     parser.add_argument('-src_vocab_size', type=int, default=100000, help="Size of the source vocabulary")
     parser.add_argument('-src_words_min_frequency', type=int, default=0)
@@ -76,15 +88,9 @@ def set_preprocess_options(parser):
 
 def set_train_options(parser):
     # Model loading/saving options
-    parser.add_argument('-root_dir', default='', help="Path to the root directory.")
-    parser.add_argument('-dataset', default='atis', help="Name of dataset.")
     parser.add_argument('-train_from', default='', type=str,
         help="If training from a checkpoint then this is the path to the pretrained model's state_dict."
     )
-
-    # GPU
-    parser.add_argument('-gpuid', default=[0], nargs='+', type=int, help="Use CUDA on the listed devices.")
-    parser.add_argument('-seed', type=int, default=123, help="Random seed used for the experiments reproducibility.")
 
     # Init options
     parser.add_argument('-start_epoch', type=int, default=1, help='The epoch from which to start')
@@ -123,7 +129,7 @@ def set_train_options(parser):
     parser.add_argument('-start_decay_at', type=int, default=0, help="Start decaying every epoch after and including this epoch")
     parser.add_argument('-start_checkpoint_at', type=int, default=5, help="Start checkpointing every epoch after and including this epoch")
     parser.add_argument('-batch_report_every', type=int, default=50, help="Print stats at this interval.")
-    parser.add_argument('-exp', type=str, default="", help="Name of the experiment for logging.")
+    parser.add_argument('-exp_name', type=str, default="", help="Name of the experiment for logging.")
 
     # loss
     parser.add_argument('-coverage_loss', type=float, default=0, help="Attention coverage loss.")
@@ -132,8 +138,6 @@ def set_train_options(parser):
 
 
 def set_translation_options(parser):
-    parser.add_argument('-root_dir', default='', help="Path to the root directory.")
-    parser.add_argument('-dataset', default='src', help="Name of dataset.")
     parser.add_argument('-model_path', required=True, help='Path to model .pt file')
     parser.add_argument('-split', default="dev", help="Path to the evaluation annotated data")
     parser.add_argument('-output', default='pred.txt', help="Path to output the predictions (each line will be the decoded sequence")
@@ -143,7 +147,6 @@ def set_translation_options(parser):
     parser.add_argument('-n_best', type=int, default=1, help='N-best size')
     parser.add_argument('-max_lay_len', type=int, default=50, help='Maximum layout decoding length.')
     parser.add_argument('-max_tgt_len', type=int, default=100, help='Maximum layout decoding length.')
-    parser.add_argument('-gpu', type=int, default=0, help="Device to run on")
     parser.add_argument('-gold_layout', action='store_true', help="Given the golden layout sequences for evaluation.")
     parser.add_argument('-attn_ignore_small', type=float, default=0, help="Ignore small attention scores.")
 
