@@ -27,7 +27,7 @@ def main():
     options.set_train_options(dummy_parser)
     dummy_opt = dummy_parser.parse_known_args([])[0]
 
-    js_list = table.IO.read_anno_json(args.anno, args)
+    js_list = table.IO.read_anno_json(args.anno)
 
     metric_name_list = ['tgt']
     prev_best = (None, None)

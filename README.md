@@ -8,15 +8,13 @@ conda install pytorch=0.2.0 -c pytorch
 pip install -r requirements.txt
 ```
 
-- download [data-model](https://drive.google.com/file/d/18oMNo4yC01gwMjHcfmE-_G5qE7X5SLYt/view?usp=sharing), and copy it to the root folder, then:
+- [download](https://drive.google.com/file/d/18oMNo4yC01gwMjHcfmE-_G5qE7X5SLYt/view?usp=sharing) data-model, and copy it to the root directory, then:
 
 ```sh
 unzip acl18coarse2fine_data_model.zip
 ```
 
-####
-
-- computer science corpus: [download](https://drive.google.com/open?id=1WDP5OwteYmjYKWR8aldY4SA7O82X8QiK)
+- [download](https://drive.google.com/open?id=1eWmnnDRWhv3YQYN5s3pecWqVCkj1btTK) embeddings and computer-science corpus and put them in `data_model` directory:
 
 #### Reference
 

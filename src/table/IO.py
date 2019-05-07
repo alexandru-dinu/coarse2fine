@@ -138,19 +138,21 @@ class OrderedIterator(torchtext.data.Iterator):
                 self.batches.append(sorted(b, key=self.sort_key))
 
 
-def _preprocess_json(js, opt):
+def preprocess_json(js):
     t = SCode((js['token'], js['type']))
     js['lay'] = t.layout(add_skip=False)
     js['lay_skip'] = t.layout(add_skip=True)
     assert len(t.target()) == len(js['lay_skip']), (list(zip(t.target(), js['lay_skip'])), ' '.join(js['tgt']))
     js['tgt'] = t.target()
 
+    return js
 
-def read_anno_json(anno_path, opt):
+
+def read_anno_json(anno_path):
     with codecs.open(anno_path, "r", "utf-8") as corpus_file:
         js_list = [json.loads(line) for line in corpus_file]
         for js in js_list:
-            _preprocess_json(js, opt)
+            preprocess_json(js)
     return js_list
 
 
@@ -159,7 +161,7 @@ class TableDataset(torchtext.data.Dataset):
 
     @staticmethod
     def sort_key(ex):
-        "Sort in reverse size order"
+        """Sort in reverse size order"""
         return -len(ex.src)
 
     def __init__(self, anno, fields, permute_order, opt, filter_ex, **kwargs):
@@ -170,7 +172,7 @@ class TableDataset(torchtext.data.Dataset):
         filter_ex: False - keep all the examples for evaluation (should not have filtered examples); True - filter examples with unmatched spans;
         """
         if isinstance(anno, string_types):
-            js_list = read_anno_json(anno, opt)
+            js_list = read_anno_json(anno)
         else:
             js_list = anno
 

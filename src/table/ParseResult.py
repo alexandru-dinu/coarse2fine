@@ -1,7 +1,6 @@
-import json
 from collections import defaultdict
 
-from tree import SCode, is_code_eq
+from tree import is_code_eq
 
 
 class ParseResult(object):
@@ -33,3 +32,9 @@ class ParseResult(object):
         #     print('pred_tgt:', ' '.join(self.tgt))
         #     print('gold_tgt:', ' '.join(gold['tgt']))
         #     print('')
+
+    def __str__(self):
+        return "idx: %s, lay: %s, tgt = %s" % (self.idx, self.lay, self.tgt)
+
+    def __repr__(self):
+        return str(self)

@@ -23,4 +23,5 @@ python src/train.py \
     -copy_prb hidden \
     -batch_report_every 25 \
     -start_checkpoint_at 5 \
-    -exp django-1
+    -word_vec_size 300 \
+    -exp django-ft-embs-5000

@@ -2,6 +2,11 @@
 This file is for models creation, which consults options
 and creates each encoder and decoder accordingly.
 """
+import pickle
+from collections import defaultdict
+import os
+
+import torch
 import torch.nn as nn
 import torchtext.vocab
 
@@ -10,6 +15,57 @@ import table.Models
 import table.modules
 from table.Models import CopyGenerator, LayCoAttention, ParserModel, QCoAttention, RNNEncoder, SeqDecoder
 from table.modules.Embeddings import PartUpdateEmbedding
+
+VOCAB_FILE = '/home/alex/workspace/msc-research/coarse2fine.git/data_model/comp-sci-corpus-thr20000-window10.vocab'
+FT_EMB_FILE = '/home/alex/workspace/msc-research/coarse2fine.git/data_model/glove-fine-tuned-5000'
+
+
+def load_glove_fine_tuned() -> torchtext.vocab.Vectors:
+    _cache = "/home/alex/workspace/msc-research/coarse2fine.git/data_model"
+    _name = FT_EMB_FILE.split("/")[-1]
+
+    print("Load glove fined-tuned from [%s]" % os.path.join(_cache, _name + ".pt"))
+
+    ft_emb_arr = pickle.load(open(FT_EMB_FILE, "rb"))
+    vocab = pickle.load(open(VOCAB_FILE, "rb"))
+
+    emb_dict = {w: ft_emb_arr[i] for w, i in vocab.items()}
+
+    # save emb_dict as .pt
+    itos = list(emb_dict.keys())
+    stoi = vocab
+    vectors = {i: torch.FloatTensor(ft_emb_arr[i]) for _, i in vocab.items()}
+    dim = len(vectors[0])
+    assert dim == 300
+
+    torch.save([itos, stoi, vectors, dim], os.path.join(_cache, _name + ".pt"))
+
+    # len(vocab) x 300
+    return torchtext.vocab.Vectors(name=_name, cache=_cache)
+
+
+def make_fine_tuned_word_embeddings(opt, word_dict, fields):
+    print("Loading fine-tuned word embeddings")
+
+    word_padding_idx = word_dict.stoi[table.IO.PAD_WORD]
+    num_word = len(word_dict)
+    emb_word = nn.Embedding(num_word, opt.word_vec_size, padding_idx=word_padding_idx)
+
+    if len(opt.pre_word_vecs) > 0:
+        vectors = [load_glove_fine_tuned()]
+        word_dict.load_vectors(vectors)
+        emb_word.weight.data.copy_(word_dict.vectors)
+
+    if opt.fix_word_vecs:
+        # <unk> is 0
+        num_special = len(table.IO.SPECIAL_TOKEN_LIST)
+        # zero vectors in the fixed embedding (emb_word)
+        emb_word.weight.data[:num_special].zero_()
+        emb_special = nn.Embedding(num_special, opt.word_vec_size, padding_idx=word_padding_idx)
+        emb = PartUpdateEmbedding(num_special, emb_special, emb_word)
+        return emb
+    else:
+        return emb_word
 
 
 def make_word_embeddings(opt, word_dict, fields):
@@ -44,8 +100,7 @@ def make_word_embeddings(opt, word_dict, fields):
 def make_embeddings(word_dict, vec_size):
     word_padding_idx = word_dict.stoi[table.IO.PAD_WORD]
     num_word = len(word_dict)
-    w_embeddings = nn.Embedding(
-        num_word, vec_size, padding_idx=word_padding_idx)
+    w_embeddings = nn.Embedding(num_word, vec_size, padding_idx=word_padding_idx)
     return w_embeddings
 
 
@@ -96,8 +151,10 @@ def make_base_model(model_opt, fields, checkpoint=None):
         the NMTModel.
     """
 
+    # TODO: add to args, don't hardcode
     print(" * make word embeddings")
-    w_embeddings = make_word_embeddings(model_opt, fields["src"].vocab, fields)
+    # w_embeddings = make_word_embeddings(model_opt, fields["src"].vocab, fields)
+    w_embeddings = make_fine_tuned_word_embeddings(model_opt, fields["src"].vocab, fields)
 
     if model_opt.ent_vec_size > 0:
         ent_embedding = make_embeddings(fields["ent"].vocab, model_opt.ent_vec_size)
@@ -125,10 +182,8 @@ def make_base_model(model_opt, fields, checkpoint=None):
 
     print(" * make layout decoder models")
     lay_field = 'lay'
-    lay_embeddings = make_embeddings(
-        fields[lay_field].vocab, model_opt.decoder_input_size)
-    lay_decoder, lay_classifier = make_decoder(
-        model_opt, fields, lay_field, lay_embeddings, model_opt.decoder_input_size)
+    lay_embeddings = make_embeddings(fields[lay_field].vocab, model_opt.decoder_input_size)
+    lay_decoder, lay_classifier = make_decoder(model_opt, fields, lay_field, lay_embeddings, model_opt.decoder_input_size)
 
     print(" * make target decoder models")
     if model_opt.no_share_emb_layout_encoder:

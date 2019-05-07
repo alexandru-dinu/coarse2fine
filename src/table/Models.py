@@ -495,6 +495,7 @@ class ParserModel(nn.Module):
 
     def forward(self, q, q_len, ent, lay, lay_e, lay_len, lay_index, tgt_mask, tgt, lay_parent_index, tgt_parent_index, copy_to_ext, copy_to_tgt):
         batch_size = q.size(1)
+
         # encoding
         q_enc, q_all = self.q_encoder(q, lengths=q_len, ent=ent)
         if self.opt.seprate_encoder:
