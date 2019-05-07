@@ -14,6 +14,10 @@ pip install -r requirements.txt
 unzip acl18coarse2fine_data_model.zip
 ```
 
+####
+
+- computer science corpus: [download](https://drive.google.com/open?id=1WDP5OwteYmjYKWR8aldY4SA7O82X8QiK)
+
 #### Reference
 
 [Coarse-to-Fine Decoding for Neural Semantic Parsing](http://homepages.inf.ed.ac.uk/s1478528/acl18-coarse2fine.pdf)

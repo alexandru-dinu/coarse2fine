@@ -236,8 +236,7 @@ class Translator(object):
                 lay_all, lay_enc_len, q_all, q)
 
         # get lay_index and tgt_mask: (tgt_len, batch)
-        lay_skip_list, tgt_mask_seq, lay_index_seq = expand_layout_with_skip(
-            lay_list)
+        lay_skip_list, tgt_mask_seq, lay_index_seq = expand_layout_with_skip(lay_list)
 
         # co-attention
         if self.model.q_co_attention is not None:
@@ -256,5 +255,4 @@ class Translator(object):
 
         # (3) recover output
         indices = cpu_vector(batch.indices.data)
-        return [ParseResult(idx, lay, tgt, token_prune)
-                for idx, lay, tgt, token_prune in zip(indices, lay_list, tgt_list, layout_token_prune_list)]
+        return [ParseResult(idx, lay, tgt, token_prune) for idx, lay, tgt, token_prune in zip(indices, lay_list, tgt_list, layout_token_prune_list)]

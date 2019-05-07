@@ -3,21 +3,19 @@ This file is for models creation, which consults options
 and creates each encoder and decoder accordingly.
 """
 import torch.nn as nn
-import torch.nn.functional as F
+import torchtext.vocab
 
 import table
 import table.Models
 import table.modules
-from table.Models import ParserModel, RNNEncoder, SeqDecoder, LayCoAttention, QCoAttention, CopyGenerator
-import torchtext.vocab
+from table.Models import CopyGenerator, LayCoAttention, ParserModel, QCoAttention, RNNEncoder, SeqDecoder
 from table.modules.Embeddings import PartUpdateEmbedding
 
 
 def make_word_embeddings(opt, word_dict, fields):
     word_padding_idx = word_dict.stoi[table.IO.PAD_WORD]
     num_word = len(word_dict)
-    emb_word = nn.Embedding(num_word, opt.word_vec_size,
-        padding_idx=word_padding_idx)
+    emb_word = nn.Embedding(num_word, opt.word_vec_size, padding_idx=word_padding_idx)
 
     if len(opt.pre_word_vecs) > 0:
         if opt.word_vec_size == 150:
@@ -26,8 +24,8 @@ def make_word_embeddings(opt, word_dict, fields):
             dim_list = ['200', '50']
         else:
             dim_list = [str(opt.word_vec_size), ]
-        vectors = [torchtext.vocab.GloVe(
-            name="6B", cache=opt.pre_word_vecs, dim=it) for it in dim_list]
+
+        vectors = [torchtext.vocab.GloVe(name="6B", cache=opt.pre_word_vecs, dim=it) for it in dim_list]
         word_dict.load_vectors(vectors)
         emb_word.weight.data.copy_(word_dict.vectors)
 
@@ -36,8 +34,7 @@ def make_word_embeddings(opt, word_dict, fields):
         num_special = len(table.IO.SPECIAL_TOKEN_LIST)
         # zero vectors in the fixed embedding (emb_word)
         emb_word.weight.data[:num_special].zero_()
-        emb_special = nn.Embedding(
-            num_special, opt.word_vec_size, padding_idx=word_padding_idx)
+        emb_special = nn.Embedding(num_special, opt.word_vec_size, padding_idx=word_padding_idx)
         emb = PartUpdateEmbedding(num_special, emb_special, emb_word)
         return emb
     else:
