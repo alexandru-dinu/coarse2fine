@@ -23,8 +23,7 @@ class SCode(object):
                 raise NotImplementedError
 
     def set_by_str(self, f):
-        tk_list = list(
-            tokenize(BytesIO(f.strip().encode('utf-8')).readline))[1:-1]
+        tk_list = list(tokenize(BytesIO(f.strip().encode('utf-8')).readline))[1:-1]
         self.token_list = [tk.string for tk in tk_list]
         self.type_list = [token.tok_name[tk.type] for tk in tk_list]
 
@@ -99,10 +98,9 @@ def is_code_eq(t1, t2, not_layout=False):
 
 
 if __name__ == '__main__':
-    for s in ("if base64d [ : 1 ] == b' _STR:0_ ' :".split(), "if base64d [ : 1 ] == b' _STR:0_ ' :".split(), "compressed = zlib . compress ( data )".split(),
-              "compressed = zlib.compress(data)".split(),):
-        t = SCode(s)
-        print(1, t)
-        print(2, t.to_list())
-        print(3, ' '.join(t.layout(add_skip=False)))
-        print('\n')
+    s = "1 if True else 0".split()
+    t = SCode((s, "NUMBER NAME NAME NAME NUMBER".split()))
+    print(1, t)
+    print(2, t.to_list())
+    print(3, ' '.join(t.layout(add_skip=False)))
+    print('\n')

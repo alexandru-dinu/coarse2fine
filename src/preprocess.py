@@ -15,24 +15,24 @@ arg_parser = argparse.ArgumentParser(description='preprocess.py')
 arg_parser.add_argument('-config', help="Read options from this file")
 arg_parser.add_argument('-src_vocab', help="Path to an existing source vocabulary")
 arg_parser.add_argument('-tgt_vocab', help="Path to an existing target vocabulary")
-arg_parser.add_argument('-seed', type=int, default=123, help="Random seed")
 arg_parser.add_argument('-report_every', type=int, default=100000, help="Report status every this many sentences")
 
+options.set_common_options(arg_parser)
 options.set_preprocess_options(arg_parser)
 
 args = arg_parser.parse_args()
-set_seed(args.seed)
 
 args.train_anno = os.path.join(args.root_dir, args.dataset, 'train.json')
 args.valid_anno = os.path.join(args.root_dir, args.dataset, 'dev.json')
 args.test_anno = os.path.join(args.root_dir, args.dataset, 'test.json')
 args.save_data = os.path.join(args.root_dir, args.dataset)
 
-assert torch.cuda.is_available()
+if args.cuda:
+    set_seed(args.seed)
 
 
 def main():
-    cli_logger.info('Preparing training ...')
+    cli_logger.info('Preparing Training ...')
     fields = table.IO.TableDataset.get_fields()
 
     cli_logger.info("Building Training...")
@@ -40,15 +40,13 @@ def main():
 
     if Path(args.valid_anno).exists():
         cli_logger.info("Building Valid...")
-        valid = table.IO.TableDataset(
-            args.valid_anno, fields, 0, args, True)
+        valid = table.IO.TableDataset(args.valid_anno, fields, permute_order=0, args=args, filter_ex=True)
     else:
         valid = None
 
     if Path(args.test_anno).exists():
         cli_logger.info("Building Test...")
-        test = table.IO.TableDataset(
-            args.test_anno, fields, 0, args, False)
+        test = table.IO.TableDataset(args.test_anno, fields, permute_order=0, args=args, filter_ex=False)
     else:
         test = None
 

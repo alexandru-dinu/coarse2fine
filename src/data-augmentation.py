@@ -16,7 +16,7 @@ def load_glove() -> dict:
         return word, np.asarray(arr, dtype='float32')
 
     if os.path.isfile(EMB_GLOVE_FILE + ".pickle"):
-        emb = pickle.load(open(EMB_GLOVE_FILE + ".pickle"), "rb")
+        emb = pickle.load(open(EMB_GLOVE_FILE + ".pickle", "rb"))
     else:
         emb = dict(get_coefs(*o.split(" ")) for o in open(EMB_GLOVE_FILE, encoding='latin'))
         pickle.dump(emb, open(EMB_GLOVE_FILE + ".pickle", "wb"))
@@ -44,7 +44,7 @@ def closest_to(emb: dict, w: str, n=1):
 
 
 def get_similar_words(word: str, emb: dict):
-    return closest_to(emb, word.lower(), n=10)
+    return closest_to(emb, word.lower(), n=20)
 
 
 def substitute(word: str, emb: dict):
@@ -55,13 +55,14 @@ def substitute(word: str, emb: dict):
     synonyms = wordnet.synsets(word)
     synonyms = set([syn.lemmas()[0].name().lower() for syn in synonyms])
 
-    print("Word: [%s]" % word)
-    print("\tSimilar words (from emb):", similar_words)
-    print("\tSynonyms (from wordnet):", synonyms)
-    print()
-
     # get intersection
     intersection = synonyms.intersection(similar_words)
+
+    print("Word: [%s]" % word)
+    print("\temb:", similar_words)
+    print("\twordnet:", synonyms)
+    print("\tintersection: ", intersection)
+    print()
 
     if len(intersection) == 0:
         return word

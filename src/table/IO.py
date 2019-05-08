@@ -8,7 +8,6 @@ from itertools import chain
 import torch
 import torchtext.data
 import torchtext.vocab
-from six import string_types
 
 from tree import SCode
 
@@ -140,6 +139,7 @@ class OrderedIterator(torchtext.data.Iterator):
 
 def preprocess_json(js):
     t = SCode((js['token'], js['type']))
+
     js['lay'] = t.layout(add_skip=False)
     js['lay_skip'] = t.layout(add_skip=True)
     assert len(t.target()) == len(js['lay_skip']), (list(zip(t.target(), js['lay_skip'])), ' '.join(js['tgt']))
@@ -164,93 +164,86 @@ class TableDataset(torchtext.data.Dataset):
         """Sort in reverse size order"""
         return -len(ex.src)
 
-    def __init__(self, anno, fields, permute_order, opt, filter_ex, **kwargs):
+    def __init__(self, examples, fields, permute_order, args, filter_ex, **kwargs):
         """
         Create a TranslationDataset given paths and fields.
 
         anno: location of annotated data / js_list
         filter_ex: False - keep all the examples for evaluation (should not have filtered examples); True - filter examples with unmatched spans;
         """
-        if isinstance(anno, string_types):
-            js_list = read_anno_json(anno)
+        if isinstance(examples, str):
+            js_list = read_anno_json(examples)
         else:
-            js_list = anno
+            js_list = examples
 
-        src_data = self._read_annotated_file(opt, js_list, 'src', filter_ex)
+        src_data = self._read_annotated_file(args, js_list, 'src', filter_ex)
         src_examples = self._construct_examples(src_data, 'src')
 
-        lay_data = self._read_annotated_file(opt, js_list, 'lay', filter_ex)
+        lay_data = self._read_annotated_file(args, js_list, 'lay', filter_ex)
         lay_examples = self._construct_examples(lay_data, 'lay')
 
         # without <s> and </s>
-        lay_e_data = self._read_annotated_file(opt, js_list, 'lay', filter_ex)
+        lay_e_data = self._read_annotated_file(args, js_list, 'lay', filter_ex)
         lay_e_examples = self._construct_examples(lay_e_data, 'lay_e')
 
-        lay_index_data = self._read_annotated_file(
-            opt, js_list, 'lay_index', filter_ex)
-        lay_index_examples = self._construct_examples(
-            lay_index_data, 'lay_index')
+        lay_index_data = self._read_annotated_file(args, js_list, 'lay_index', filter_ex)
+        lay_index_examples = self._construct_examples(lay_index_data, 'lay_index')
 
-        lay_parent_index_data = self._read_annotated_file(
-            opt, js_list, 'lay_parent_index', filter_ex)
-        lay_parent_index_examples = self._construct_examples(
-            lay_parent_index_data, 'lay_parent_index')
+        lay_parent_index_data = self._read_annotated_file(args, js_list, 'lay_parent_index', filter_ex)
+        lay_parent_index_examples = self._construct_examples(lay_parent_index_data, 'lay_parent_index')
 
-        copy_to_tgt_data = self._read_annotated_file(
-            opt, js_list, 'copy_to_tgt', filter_ex)
-        copy_to_tgt_examples = self._construct_examples(
-            copy_to_tgt_data, 'copy_to_tgt')
+        copy_to_tgt_data = self._read_annotated_file(args, js_list, 'copy_to_tgt', filter_ex)
+        copy_to_tgt_examples = self._construct_examples(copy_to_tgt_data, 'copy_to_tgt')
 
-        copy_to_ext_data = self._read_annotated_file(
-            opt, js_list, 'copy_to_ext', filter_ex)
-        copy_to_ext_examples = self._construct_examples(
-            copy_to_ext_data, 'copy_to_ext')
+        copy_to_ext_data = self._read_annotated_file(args, js_list, 'copy_to_ext', filter_ex)
+        copy_to_ext_examples = self._construct_examples(copy_to_ext_data, 'copy_to_ext')
 
-        tgt_mask_data = self._read_annotated_file(
-            opt, js_list, 'tgt_mask', filter_ex)
+        tgt_mask_data = self._read_annotated_file(args, js_list, 'tgt_mask', filter_ex)
         tgt_mask_examples = self._construct_examples(tgt_mask_data, 'tgt_mask')
 
-        tgt_data = self._read_annotated_file(opt, js_list, 'tgt', filter_ex)
+        tgt_data = self._read_annotated_file(args, js_list, 'tgt', filter_ex)
         tgt_examples = self._construct_examples(tgt_data, 'tgt')
 
-        tgt_parent_index_data = self._read_annotated_file(
-            opt, js_list, 'tgt_parent_index', filter_ex)
-        tgt_parent_index_examples = self._construct_examples(
-            tgt_parent_index_data, 'tgt_parent_index')
+        tgt_parent_index_data = self._read_annotated_file(args, js_list, 'tgt_parent_index', filter_ex)
+        tgt_parent_index_examples = self._construct_examples(tgt_parent_index_data, 'tgt_parent_index')
 
-        tgt_loss_data = self._read_annotated_file(
-            opt, js_list, 'tgt_loss', filter_ex)
+        tgt_loss_data = self._read_annotated_file(args, js_list, 'tgt_loss', filter_ex)
         tgt_loss_examples = self._construct_examples(tgt_loss_data, 'tgt_loss')
 
-        tgt_copy_ext_data = self._read_annotated_file(
-            opt, js_list, 'tgt_copy_ext', filter_ex)
+        tgt_copy_ext_data = self._read_annotated_file(args, js_list, 'tgt_copy_ext', filter_ex)
         tgt_copy_ext_examples = self._construct_examples(tgt_copy_ext_data, 'tgt_copy_ext')
 
         # examples: one for each src line or (src, tgt) line pair.
-        examples = [join_dicts(*it) for it in
-                    zip(src_examples, lay_examples, lay_e_examples, lay_index_examples, lay_parent_index_examples, copy_to_tgt_examples, copy_to_ext_examples, tgt_mask_examples,
-                        tgt_examples, tgt_parent_index_examples, tgt_loss_examples, tgt_copy_ext_examples)]
+        examples = [
+            join_dicts(*it)
+            for it in zip(
+                src_examples, lay_examples, lay_e_examples, lay_index_examples, lay_parent_index_examples,
+                copy_to_tgt_examples, copy_to_ext_examples, tgt_mask_examples, tgt_examples,
+                tgt_parent_index_examples, tgt_loss_examples, tgt_copy_ext_examples
+            )
+        ]
+
         # the examples should not contain None
         len_before_filter = len(examples)
-        examples = list(filter(lambda x: all(
-            (v is not None for k, v in x.items())), examples))
+        examples = list(filter(lambda x: all((v is not None for k, v in x.items())), examples))
+
         len_after_filter = len(examples)
         num_filter = len_before_filter - len_after_filter
+
         if num_filter > 0:
-            print('Filter #examples (with None): {} / {} = {:.2%}'.format(num_filter,
-                len_before_filter, num_filter / len_before_filter))
+            print('Filter #examples (with None): {} / {} = {:.2%}'.format(
+                num_filter, len_before_filter, num_filter / len_before_filter)
+            )
 
         # Peek at the first to see which fields are used.
         ex = examples[0]
         keys = ex.keys()
-        fields = [(k, fields[k])
-                  for k in (list(keys) + ["indices"])]
+        fields = [(k, fields[k]) for k in (list(keys) + ["indices"])]
 
         def construct_final(examples):
             for i, ex in enumerate(examples):
                 yield torchtext.data.Example.fromlist(
-                    [ex[k] for k in keys] + [i],
-                    fields)
+                    [ex[k] for k in keys] + [i], fields)
 
         def filter_pred(example):
             return True
@@ -258,15 +251,17 @@ class TableDataset(torchtext.data.Dataset):
         super(TableDataset, self).__init__(
             construct_final(examples), fields, filter_pred)
 
-    def _read_annotated_file(self, opt, js_list, field, filter_ex):
+    def _read_annotated_file(self, args, js_list, field, filter_ex):
         """
         path: location of a src or tgt file
         truncate: maximum sequence length (0 for unlimited)
         """
         if field in ('src', 'lay'):
             lines = (line[field] for line in js_list)
+
         elif field in ('copy_to_tgt', 'copy_to_ext'):
             lines = (line['src'] for line in js_list)
+
         elif field in ('tgt',):
             def _tgt(line):
                 r_list = []
@@ -278,6 +273,7 @@ class TableDataset(torchtext.data.Dataset):
                 return r_list
 
             lines = (_tgt(line) for line in js_list)
+
         elif field in ('tgt_copy_ext',):
             def _tgt_copy_ext(line):
                 r_list = []
@@ -290,18 +286,25 @@ class TableDataset(torchtext.data.Dataset):
                 return r_list
 
             lines = (_tgt_copy_ext(line) for line in js_list)
+
         elif field in ('tgt_loss',):
             lines = (get_tgt_loss(line, False) for line in js_list)
+
         elif field in ('tgt_mask',):
             lines = (get_tgt_mask(line['lay_skip']) for line in js_list)
+
         elif field in ('lay_index',):
             lines = (get_lay_index(line['lay_skip']) for line in js_list)
+
         elif field in ('lay_parent_index',):
             lines = (get_parent_index(line['lay']) for line in js_list)
+
         elif field in ('tgt_parent_index',):
             lines = (get_parent_index(line['tgt']) for line in js_list)
+
         else:
             raise NotImplementedError
+
         for line in lines:
             yield line
 

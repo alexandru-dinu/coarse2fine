@@ -23,8 +23,7 @@ python src/train.py \
     -copy_prb hidden \
     -batch_report_every 25 \
     -start_checkpoint_at 5 \
-    -word_emb_size 300 \
-    -exp_name django-ft-embs-5000 \
-    -use_custom_embeddings -word_embeddings ../data_model/glove-fine-tuned-1000 \
-    -word_emb_size 300 \
+    -word_emb_size 250 \
+    -exp_name conala-django-orig-embs \
+    -word_embeddings ${base_dir}/data_model/django/embedding \
     -cuda
