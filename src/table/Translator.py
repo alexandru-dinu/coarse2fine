@@ -110,12 +110,14 @@ def expand_layout_with_skip(lay_list, cuda=False):
 
 class Translator(object):
     def __init__(self, args):
-        # Add in default model arguments, possibly added since training.
         self.args = args
         checkpoint = torch.load(args.model, map_location=lambda storage, loc: storage)
         self.fields = table.IO.TableDataset.load_fields(checkpoint['vocab'])
 
         model_args = checkpoint['opt']
+
+        model_args.cuda = args.cuda
+        # TODO args
 
         for arg in args.__dict__:
             if arg not in model_args:

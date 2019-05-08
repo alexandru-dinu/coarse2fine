@@ -1,16 +1,16 @@
 from __future__ import division
+
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence as pack
 from torch.nn.utils.rnn import pad_packed_sequence as unpack
-import torch.nn.functional as F
 
 import table
 from table.Utils import aeq, sort_for_pack
-from table.modules.embed_regularize import embedded_dropout
 from table.modules.cross_entropy_smooth import onehot
-from table.Utils import argmax
+from table.modules.embed_regularize import embedded_dropout
 
 
 def _build_rnn(rnn_type, input_size, hidden_size, num_layers, dropout, weight_dropout, bidirectional=False):
@@ -441,14 +441,14 @@ class CopyGenerator(nn.Module):
 
         return torch.cat([prob_log, ext_copy_prob_log], 1).view(dec_seq_len, batch_size, -1)
 
-        # copy to target vocabulary
-        copy_to_tgt_onehot = onehot(
-            copy_to_tgt, N=len(self.tgt_dict), ignore_index=self.tgt_dict.stoi[table.IO.UNK_WORD]).float()
-        tgt_add_copy_prob = torch.bmm(mul_attn.view(-1, batch, slen).transpose(0, 1),
-            copy_to_tgt_onehot.transpose(0, 1)).transpose(0, 1).contiguous().view(-1, len(self.tgt_dict))
-        out_prob = torch.exp(out_prob_log) + tgt_add_copy_prob
-
-        return torch.log(torch.cat([out_prob, ext_copy_prob], 1)).view(dec_seq_len, batch_size, -1)
+        # # copy to target vocabulary
+        # copy_to_tgt_onehot = onehot(
+        #     copy_to_tgt, N=len(self.tgt_dict), ignore_index=self.tgt_dict.stoi[table.IO.UNK_WORD]).float()
+        # tgt_add_copy_prob = torch.bmm(mul_attn.view(-1, batch, slen).transpose(0, 1),
+        #     copy_to_tgt_onehot.transpose(0, 1)).transpose(0, 1).contiguous().view(-1, len(self.tgt_dict))
+        # out_prob = torch.exp(out_prob_log) + tgt_add_copy_prob
+        #
+        # return torch.log(torch.cat([out_prob, ext_copy_prob], 1)).view(dec_seq_len, batch_size, -1)
 
 
 class ParserModel(nn.Module):
@@ -477,11 +477,11 @@ class ParserModel(nn.Module):
     def enc_to_ht(self, q_enc, batch_size):
         # (num_layers * num_directions, batch, hidden_size)
         q_ht, q_ct = q_enc
-        q_ht = q_ht[-1] if not self.args.brnn else q_ht[-2:].transpose(
-            0, 1).contiguous().view(batch_size, -1).unsqueeze(0)
+        q_ht = q_ht[-1] if not self.args.brnn else q_ht[-2:].transpose(0, 1).contiguous().view(batch_size, -1).unsqueeze(0)
         return q_ht
 
-    def run_decoder(self, decoder, classifier, q, q_all, q_enc, inp, parent_index):
+    @staticmethod
+    def run_decoder(decoder, classifier, q, q_all, q_enc, inp, parent_index):
         batch_size = q.size(1)
         decoder.attn.applyMaskBySeqBatch(q)
         q_state = decoder.init_decoder_state(q_all, q_enc)
@@ -492,7 +492,8 @@ class ParserModel(nn.Module):
         dec_out = dec_out.view(dec_seq_len, batch_size, -1)
         return dec_out, attn_scores
 
-    def run_copy_decoder(self, decoder, classifier, q, q_all, q_enc, inp, parent_index, copy_to_ext, copy_to_tgt):
+    @staticmethod
+    def run_copy_decoder(decoder, classifier, q, q_all, q_enc, inp, parent_index, copy_to_ext, copy_to_tgt):
         batch_size = q.size(1)
         decoder.attn.applyMaskBySeqBatch(q)
         q_state = decoder.init_decoder_state(q_all, q_enc)
@@ -523,7 +524,8 @@ class ParserModel(nn.Module):
         # layout decoding
         dec_in_lay = lay[:-1]
         lay_out, lay_attn_scores = self.run_decoder(
-            self.lay_decoder, self.lay_classifier, q, q_all, q_enc, dec_in_lay, lay_parent_index)
+            self.lay_decoder, self.lay_classifier, q, q_all, q_enc, dec_in_lay, lay_parent_index
+        )
 
         if self.args.coverage_loss > 0:
             q_mask = Variable(q.data.ne(table.IO.PAD).t(), requires_grad=False)
@@ -547,16 +549,14 @@ class ParserModel(nn.Module):
             lay_all = self.lay_co_attention(lay_all, lay_e_len, q_all, q)
 
         # target decoding
-        batch_index = torch.LongTensor(range(batch_size)).unsqueeze_(
-            0).cuda().expand(lay_index.size(0), lay_index.size(1))
+        batch_index = torch.LongTensor(range(batch_size)).unsqueeze_(0).cuda().expand(lay_index.size(0), lay_index.size(1))
         # (tgt_len, batch, lay_size)
         lay_select = lay_all[lay_index.data, batch_index, :]
         # (tgt_len, batch, lay_size)
         tgt_inp_emb = self.tgt_embeddings(tgt[:-1])
         # (tgt_len, batch) -> (tgt_len, batch, lay_size)
         tgt_mask_expand = tgt_mask.unsqueeze(2).expand_as(tgt_inp_emb)
-        dec_inp = tgt_inp_emb.mul(tgt_mask_expand) + \
-                  lay_select.mul(1 - tgt_mask_expand)
+        dec_inp = tgt_inp_emb.mul(tgt_mask_expand) + lay_select.mul(1 - tgt_mask_expand)
 
         # co-attention
         if self.q_co_attention is not None:
@@ -567,6 +567,7 @@ class ParserModel(nn.Module):
             q_tgt_enc, q_tgt_all = q_tgt_enc_co_attn, q_tgt_all_co_attn
 
         tgt_out, __ = self.run_copy_decoder(
-            self.tgt_decoder, self.tgt_classifier, q, q_tgt_all, q_tgt_enc, dec_inp, tgt_parent_index, copy_to_ext, copy_to_tgt)
+            self.tgt_decoder, self.tgt_classifier, q, q_tgt_all, q_tgt_enc, dec_inp, tgt_parent_index, copy_to_ext, copy_to_tgt
+        )
 
         return lay_out, tgt_out, token_out, loss_coverage

@@ -24,8 +24,8 @@ if args.beam_size > 0:
 def main():
     js_list = [
         table.IO.preprocess_json({
-            "token": ["SomeMethod", "(", "min", ",", "max", ")"],
-            "src"  : "call the method SomeMethod with arguments min and max".split(),
+            "token": ["SomeFunction", "(", "min", ",", "max", ")"],
+            "src"  : "call the function SomeFunction with arguments min and max".split(),
             "succ" : True,
             "type" : ["NAME", "OP", "NAME", "OP", "NAME", "OP"]  # TODO
         })
@@ -42,7 +42,7 @@ def main():
         batch_size=args.batch_size, train=False, sort=True, sort_within_batch=False
     )
 
-    # inference
+    print("inference")
     r_list = []
     for i, batch in enumerate(test_data):
         r = translator.translate(batch)

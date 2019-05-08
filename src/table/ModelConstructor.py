@@ -1,14 +1,10 @@
-"""
-This file is for models creation, which consults argsions
-and creates each encoder and decoder accordingly.
-"""
 import os
 import pickle
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torchtext.vocab
-import numpy as np
 from tqdm.auto import tqdm
 
 import table
@@ -17,65 +13,86 @@ import table.modules
 from table.Models import CopyGenerator, LayCoAttention, ParserModel, QCoAttention, RNNEncoder, SeqDecoder
 from table.modules.Embeddings import PartUpdateEmbedding
 
-# TODO: don't hardcode
-VOCAB_FILE = '/home/nemodrive3/dinu/coarse2fine/data_model/comp-sci-corpus-thr20000-window10-tfidf.vocab'
-EMB_GLOVE_FILE = '/home/nemodrive3/dinu/coarse2fine/data_model/glove.840B.300d.txt'
+DATA_MODEL_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../../data_model')
+EMB_FILE = os.path.join(DATA_MODEL_DIR, 'glove.840B.300d.txt')
 
-def _load_orig_glove() -> dict:
+
+def load_orig_glove(emb_file: str) -> dict:
     def get_coefs(word, *arr):
         return word, np.asarray(arr, dtype='float32')
 
-    if os.path.isfile(EMB_GLOVE_FILE + ".pickle"):
-        emb = pickle.load(open(EMB_GLOVE_FILE + ".pickle", "rb"))
+    if os.path.isfile(emb_file + ".pickle"):
+        print(" * load glove from pickle")
+        emb = pickle.load(open(emb_file + ".pickle", "rb"))
     else:
-        emb = dict(get_coefs(*o.split(" ")) for o in open(EMB_GLOVE_FILE, encoding='latin'))
-        pickle.dump(emb, open(EMB_GLOVE_FILE + ".pickle", "wb"))
+        print(" * load glove from txt, dumping to pickle")
+        emb = dict(get_coefs(*o.split(" ")) for o in open(emb_file, encoding='latin'))
+        pickle.dump(emb, open(emb_file + ".pickle", "wb"))
 
     return emb
 
 
-def _load_glove_fine_tuned(emb_file) -> torchtext.vocab.Vectors:
-    _cache = "/home/nemodrive3/dinu/coarse2fine/data_model"  # TODO
-    _name = emb_file.split("/")[-1] if "/" in emb_file else emb_file
+def load_glove_fine_tuned(vocab_file, pt_emb_file, ft_emb_file, get_only_dict=False):
+    """
+    :param vocab_file: word2idx vocabulary
+    :param pt_emb_file: pre-trained embeddings
+    :param ft_emb_file: fine-tuned embeddings
+    :param get_only_dict: return dict if true, otherwise return Vectors
+    :return:
+    """
 
+    _cache = DATA_MODEL_DIR
+    _name = ft_emb_file.split("/")[-1] if "/" in ft_emb_file else ft_emb_file
+
+    print(" * load vocab from [%s]" % vocab_file)
     print(" * load glove fined-tuned from [%s]" % os.path.join(_cache, _name + ".pt"))
 
-    orig_glove_emb = _load_orig_glove()
+    if os.path.isfile(os.path.join(_cache, _name + ".pt")):
+        print(" * returning existing .pt file")
+        return torchtext.vocab.Vectors(name=_name, cache=_cache)
 
-    ft_emb_arr = pickle.load(open(emb_file, "rb"))
-    vocab = pickle.load(open(VOCAB_FILE, "rb"))
+    glove_emb = load_orig_glove(pt_emb_file)
 
-    ft_glove_emb = {w: ft_emb_arr[i] for w, i in vocab.items()}
+    ft_glove_emb_arr = pickle.load(open(ft_emb_file, "rb"))
+    vocab = pickle.load(open(vocab_file, "rb"))
 
+    ft_glove_emb = {w: ft_glove_emb_arr[i] for w, i in vocab.items()}
+
+    print(" * mixing embeddings")
     for w in tqdm(ft_glove_emb):
-        if w not in orig_glove_emb:
-            orig_glove_emb[w] = ft_glove_emb[w]
+        if w not in glove_emb:
+            glove_emb[w] = ft_glove_emb[w]
         else:
-            orig_glove_emb[w] = 0.5 * (ft_glove_emb[w] + orig_glove_emb[w])
+            glove_emb[w] = 0.5 * ft_glove_emb[w] + 0.5 * glove_emb[w]
+
+    if get_only_dict:
+        print(" * returning emb dict")
+        return glove_emb
+
+    else:
+        print(" * returning torchtext.vocab.Vectors")
+
+        # save emb_dict as .pt
+        itos = list(glove_emb.keys())
+        stoi = {}
+        vectors = {}
+
+        for i, w in tqdm(enumerate(glove_emb), total=len(glove_emb)):
+            stoi[w] = i
+            vectors[i] = torch.FloatTensor(glove_emb[w])
+
+        dim = len(vectors[0])
+        assert dim == 300
+
+        torch.save([itos, stoi, vectors, dim], os.path.join(_cache, _name + ".pt"))
+
+        # len(vocab) x 300
+        return torchtext.vocab.Vectors(name=_name, cache=_cache)
 
 
-    # save emb_dict as .pt
-    itos = list(orig_glove_emb.keys())
-
-    stoi = {}
-    vectors = {}
-
-    for i, w in tqdm(enumerate(orig_glove_emb), total=len(orig_glove_emb)):
-        stoi[w] = i
-        vectors[i] = torch.FloatTensor(orig_glove_emb[w])
-
-    dim = len(vectors[0])
-    assert dim == 300
-
-    torch.save([itos, stoi, vectors, dim], os.path.join(_cache, _name + ".pt"))
-
-    # len(vocab) x 300
-    return torchtext.vocab.Vectors(name=_name, cache=_cache)
-
-
-def make_word_embeddings(args, word_dict):
-    word_padding_idx = word_dict.stoi[table.IO.PAD_WORD]
-    num_word = len(word_dict)
+def make_word_embeddings(args, vocab: torchtext.vocab.Vocab):
+    word_padding_idx = vocab.stoi[table.IO.PAD_WORD]
+    num_word = len(vocab)
     emb_word = nn.Embedding(num_word, args.word_emb_size, padding_idx=word_padding_idx)
 
     print(" * using embeddings [%s]" % args.word_embeddings)
@@ -83,8 +100,10 @@ def make_word_embeddings(args, word_dict):
     if len(args.word_embeddings) > 0:
         # load custom embeddings
         if args.use_custom_embeddings:
-            word_dict.load_vectors(vectors=[_load_glove_fine_tuned(args.word_embeddings)])
-            emb_word.weight.data.copy_(word_dict.vectors)
+            vocab.load_vectors(vectors=[
+                load_glove_fine_tuned(args.vocab_file, EMB_FILE, args.word_embeddings)
+            ])
+            emb_word.weight.data.copy_(vocab.vectors)
         else:
             if args.word_emb_size == 150:
                 dim_list = ['100', '50']
@@ -94,8 +113,8 @@ def make_word_embeddings(args, word_dict):
                 dim_list = [str(args.word_emb_size), ]
 
             vectors = [torchtext.vocab.GloVe(name="6B", cache=args.word_embeddings, dim=it) for it in dim_list]
-            word_dict.load_vectors(vectors)
-            emb_word.weight.data.copy_(word_dict.vectors)
+            vocab.load_vectors(vectors)
+            emb_word.weight.data.copy_(vocab.vectors)
 
     if args.fix_word_vecs:
         # <unk> is 0
@@ -176,7 +195,7 @@ def make_decoder(args, fields, field_name, embeddings, input_size):
 
 def make_base_model(model_args, fields, checkpoint=None):
     print(" * make word embeddings")
-    w_embeddings = make_word_embeddings(model_args, fields["src"].vocab)
+    w_embeddings = make_word_embeddings(model_args, vocab=fields["src"].vocab)
 
     if model_args.ent_vec_size > 0:
         ent_embedding = make_embeddings(fields["ent"].vocab, model_args.ent_vec_size)
@@ -230,7 +249,7 @@ def make_base_model(model_args, fields, checkpoint=None):
     )
 
     if checkpoint is not None:
-        print('Loading model')
+        print(' * loading model from checkpoint [%s]' % model_args.model_path)
         model.load_state_dict(checkpoint['model'])
 
     if model_args.cuda:

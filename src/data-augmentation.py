@@ -1,35 +1,28 @@
 import os
-import pickle
 import random
 
 import nltk
 import numpy as np
 from nltk.corpus import wordnet
 
-VOCAB_FILE = '../data_model/comp-sci-corpus-thr20000-window10.vocab'
-EMB_GLOVE_FILE = '../data_model/glove.840B.300d.txt'
-FT_EMB_FILE = '../data_model/glove-fine-tuned-5000'
+import argparse
+
+from table.ModelConstructor import load_orig_glove, load_glove_fine_tuned
+
+arg_parser = argparse.ArgumentParser()
+arg_parser.add_argument(
+    "-data_model_dir", type=str, default=os.path.join(os.path.abspath(os.path.dirname(__file__)), '../data_model')
+)
+arg_parser.add_argument("-vocab_file", type=str)  # e.g. comp-sci-corpus-thr20000-window10.vocab
+arg_parser.add_argument("-emb_file", type=str)  # e.g. glove.840B.300d.txt
+arg_parser.add_argument("-ft_emb_file", type=str)  # e.g. glove-fine-tuned-tfidf-2000
+
+args = arg_parser.parse_args()
 
 
-def load_glove() -> dict:
-    def get_coefs(word, *arr):
-        return word, np.asarray(arr, dtype='float32')
-
-    if os.path.isfile(EMB_GLOVE_FILE + ".pickle"):
-        emb = pickle.load(open(EMB_GLOVE_FILE + ".pickle", "rb"))
-    else:
-        emb = dict(get_coefs(*o.split(" ")) for o in open(EMB_GLOVE_FILE, encoding='latin'))
-        pickle.dump(emb, open(EMB_GLOVE_FILE + ".pickle", "wb"))
-
-    return emb
-
-
-def load_glove_fine_tuned() -> dict:
-    ft_emb_arr = pickle.load(open(FT_EMB_FILE, "rb"))
-    vocab = pickle.load(open(VOCAB_FILE, "rb"))
-
-    # len(vocab) x 300
-    return {w: ft_emb_arr[i] for w, i in vocab.items()}
+# args.vocab_file = os.path.join(args.data_model_dir, 'comp-sci-corpus-thr20000-window10.vocab')
+# args.emb_file = os.path.join(args.data_model_dir, 'glove.840B.300d.txt')
+# args.ft_emb_file = os.path.join(args.data_model_dir, 'glove-fine-tuned-tfidf-2000')
 
 
 def closest_to(emb: dict, w: str, n=1):
@@ -79,14 +72,14 @@ def augment_text(text: str, emb: dict):
 
         # check if is noun (singular or plural) or verb
         if pos_tag in ['NN', 'NNS'] or pos_tag.startswith("VB"):
+            print("> substituting word %s" % word)
             text[i] = substitute(word, emb)
 
     return " ".join(text)
 
 
 def main():
-    emb = load_glove_fine_tuned()
-    # emb = load_glove()
+    emb = load_glove_fine_tuned(args.ft_emb_file, get_only_dict=True)
 
     text = "call the function and assign the result to variable x"
     aug = augment_text(text, emb)

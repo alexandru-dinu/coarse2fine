@@ -1,14 +1,16 @@
 from __future__ import division
-import os
+
 import argparse
-import torch
 import codecs
 import glob
+import os
 
+import torch
+from tqdm.auto import tqdm
+
+import options
 import table
 import table.IO
-import options
-from tqdm.auto import tqdm
 
 arg_parser = argparse.ArgumentParser()
 options.set_common_options(arg_parser)
@@ -34,24 +36,24 @@ def main():
     for cur_model in glob.glob(args.model_path):
         args.model = cur_model
 
+        # translator model
         translator = table.Translator(args)
-        data = table.IO.TableDataset(js_list, translator.fields, 0, None, False)
         test_data = table.IO.OrderedIterator(
-            dataset=data, device=args.gpu_id[0] if args.cuda else -1,
-            batch_size=args.batch_size, train=False, sort=True, sort_within_batch=False
+            dataset=table.IO.TableDataset(js_list, translator.fields, 0, None, False),
+            device=args.gpu_id[0] if args.cuda else -1,  # -1 is CPU
+            batch_size=args.batch_size,
+            train=False, sort=True, sort_within_batch=False
         )
 
-        # inference
         r_list = []
-        for batch in tqdm(test_data):
+        for batch in tqdm(test_data, desc="Inference"):
             r = translator.translate(batch)
             r_list += r
 
         r_list.sort(key=lambda x: x.idx)
         assert len(r_list) == len(js_list), 'len(r_list) != len(js_list): {} != {}'.format(len(r_list), len(js_list))
 
-        # evaluation
-        for pred, gold in zip(r_list, js_list):
+        for pred, gold in tqdm(zip(r_list, js_list), total=len(r_list), desc="Evaluation"):
             pred.eval(gold)
 
         print('Results:')

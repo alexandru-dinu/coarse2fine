@@ -18,7 +18,8 @@ def set_model_options(parser):
     """
 
     # Embedding Options
-    parser.add_argument('-use_custom_embeddings', action="store_true", help='Wheter custom embeddings (and loading) are used.')
+    parser.add_argument('-vocab_file', type=str, help='Path to the vocab file')
+    parser.add_argument('-use_custom_embeddings', action="store_true", help='Whether custom embeddings (and loading) are used.')
     parser.add_argument('-word_embeddings', type=str, help='Path to word embeddings file.')
     parser.add_argument('-word_emb_size', type=int, default=250, help='Word embedding for both.')
     parser.add_argument('-ent_vec_size', type=int, default=0, help='Entity type embedding size.')
