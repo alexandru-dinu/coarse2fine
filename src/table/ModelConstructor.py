@@ -8,6 +8,8 @@ import pickle
 import torch
 import torch.nn as nn
 import torchtext.vocab
+import numpy as np
+from tqdm.auto import tqdm
 
 import table
 import table.Models
@@ -16,24 +18,52 @@ from table.Models import CopyGenerator, LayCoAttention, ParserModel, QCoAttentio
 from table.modules.Embeddings import PartUpdateEmbedding
 
 # TODO: don't hardcode
-VOCAB_FILE = '/home/alex/workspace/msc-research/coarse2fine.git/data_model/comp-sci-corpus-thr20000-window10.vocab'
+VOCAB_FILE = '/home/nemodrive3/dinu/coarse2fine/data_model/comp-sci-corpus-thr20000-window10-tfidf.vocab'
+EMB_GLOVE_FILE = '/home/nemodrive3/dinu/coarse2fine/data_model/glove.840B.300d.txt'
+
+def _load_orig_glove() -> dict:
+    def get_coefs(word, *arr):
+        return word, np.asarray(arr, dtype='float32')
+
+    if os.path.isfile(EMB_GLOVE_FILE + ".pickle"):
+        emb = pickle.load(open(EMB_GLOVE_FILE + ".pickle", "rb"))
+    else:
+        emb = dict(get_coefs(*o.split(" ")) for o in open(EMB_GLOVE_FILE, encoding='latin'))
+        pickle.dump(emb, open(EMB_GLOVE_FILE + ".pickle", "wb"))
+
+    return emb
 
 
 def _load_glove_fine_tuned(emb_file) -> torchtext.vocab.Vectors:
-    _cache = "/home/alex/workspace/msc-research/coarse2fine.git/data_model"  # TODO
+    _cache = "/home/nemodrive3/dinu/coarse2fine/data_model"  # TODO
     _name = emb_file.split("/")[-1] if "/" in emb_file else emb_file
 
     print(" * load glove fined-tuned from [%s]" % os.path.join(_cache, _name + ".pt"))
 
+    orig_glove_emb = _load_orig_glove()
+
     ft_emb_arr = pickle.load(open(emb_file, "rb"))
     vocab = pickle.load(open(VOCAB_FILE, "rb"))
 
-    emb_dict = {w: ft_emb_arr[i] for w, i in vocab.items()}
+    ft_glove_emb = {w: ft_emb_arr[i] for w, i in vocab.items()}
+
+    for w in tqdm(ft_glove_emb):
+        if w not in orig_glove_emb:
+            orig_glove_emb[w] = ft_glove_emb[w]
+        else:
+            orig_glove_emb[w] = 0.5 * (ft_glove_emb[w] + orig_glove_emb[w])
+
 
     # save emb_dict as .pt
-    itos = list(emb_dict.keys())
-    stoi = vocab
-    vectors = {i: torch.FloatTensor(ft_emb_arr[i]) for _, i in vocab.items()}
+    itos = list(orig_glove_emb.keys())
+
+    stoi = {}
+    vectors = {}
+
+    for i, w in tqdm(enumerate(orig_glove_emb), total=len(orig_glove_emb)):
+        stoi[w] = i
+        vectors[i] = torch.FloatTensor(orig_glove_emb[w])
+
     dim = len(vectors[0])
     assert dim == 300
 

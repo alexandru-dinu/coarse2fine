@@ -140,8 +140,8 @@ def train(model, train_data, valid_data, fields, optim):
         dataset=valid_data, batch_size=args.batch_size, device=args.gpu_id[0], train=False, sort=True, sort_within_batch=False
     )
 
-    train_loss = table.Loss.LossCompute(smooth_eps=model.opt.smooth_eps).cuda()
-    valid_loss = table.Loss.LossCompute(smooth_eps=model.opt.smooth_eps).cuda()
+    train_loss = table.Loss.LossCompute(smooth_eps=model.args.smooth_eps).cuda()
+    valid_loss = table.Loss.LossCompute(smooth_eps=model.args.smooth_eps).cuda()
 
     trainer = table.Trainer(model, train_iter, valid_iter, train_loss, valid_loss, optim, summary_writer)
 
