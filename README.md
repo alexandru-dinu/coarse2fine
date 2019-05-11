@@ -3,6 +3,7 @@
 #### Prerequisites
 
 - use separate conda env: `conda create -n coarse2fine python=3.5`, then:
+
 ```sh
 conda install pytorch=0.2.0 -c pytorch 
 pip install -r requirements.txt

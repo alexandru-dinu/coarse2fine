@@ -109,9 +109,12 @@ def expand_layout_with_skip(lay_list, cuda=False):
 
 
 class Translator(object):
-    def __init__(self, args):
+    def __init__(self, args, checkpoint=None):
         self.args = args
-        checkpoint = torch.load(args.model, map_location=lambda storage, loc: storage)
+
+        if checkpoint is None:
+            checkpoint = torch.load(args.model, map_location=lambda storage, loc: storage)
+
         self.fields = table.IO.TableDataset.load_fields(checkpoint['vocab'])
 
         model_args = checkpoint['opt']

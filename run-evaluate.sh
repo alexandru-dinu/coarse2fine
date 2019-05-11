@@ -11,5 +11,4 @@ python src/evaluate.py \
     -dataset ${dataset} \
     -split test \
     -batch_size 2 \
-    -model_path ${model_path} \
-    -vocab_file ${base_dir}/data_model/comp-sci-corpus-thr20000-window10-tfidf.vocab
+    -model_path ${model_path}

@@ -9,7 +9,7 @@ import torch
 import torchtext.data
 import torchtext.vocab
 
-from tree import SCode
+from tree import SketchRepresentation
 
 UNK_WORD = '<unk>'
 UNK = 0
@@ -138,7 +138,7 @@ class OrderedIterator(torchtext.data.Iterator):
 
 
 def preprocess_json(js):
-    t = SCode((js['token'], js['type']))
+    t = SketchRepresentation((js['token'], js['type']))
 
     js['lay'] = t.layout(add_skip=False)
     js['lay_skip'] = t.layout(add_skip=True)

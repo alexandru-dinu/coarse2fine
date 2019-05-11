@@ -7,7 +7,7 @@ RIG_WORD = '<]>'
 LFT_WORD = '<[>'
 
 
-class SCode(object):
+class SketchRepresentation(object):
     def __init__(self, init):
         self.token_list = None
         self.type_list = None
@@ -77,29 +77,27 @@ class SCode(object):
 
 
 def is_code_eq(t1, t2, not_layout=False):
-    if isinstance(t1, SCode):
+    if isinstance(t1, SketchRepresentation):
         t1 = str(t1)
     else:
         t1 = ' '.join(t1)
-    if isinstance(t2, SCode):
+    if isinstance(t2, SketchRepresentation):
         t2 = str(t2)
     else:
         t2 = ' '.join(t2)
+
     t1 = ['\"' if it in (RIG_WORD, LFT_WORD) else it for it in t1.split(' ')]
     t2 = ['\"' if it in (RIG_WORD, LFT_WORD) else it for it in t2.split(' ')]
-    if len(t1) == len(t2):
-        for tk1, tk2 in zip(t1, t2):
-            # if not (tk1 == tk2 or tk1 == '<unk>' or tk2 == '<unk>'):
-            if tk1 != tk2:
-                return False
-        return True
-    else:
+
+    if len(t1) != len(t2):
         return False
+
+    return all(map(lambda tk1, tk2: tk1 == tk2, t1, t2))
 
 
 if __name__ == '__main__':
     s = "1 if True else 0".split()
-    t = SCode((s, "NUMBER NAME NAME NAME NUMBER".split()))
+    t = SketchRepresentation((s, "NUMBER NAME NAME NAME NUMBER".split()))
     print(1, t)
     print(2, t.to_list())
     print(3, ' '.join(t.layout(add_skip=False)))

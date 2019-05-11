@@ -89,16 +89,11 @@ class Sketch(object):
         assert len(self.token_list) == len(self.type_list)
 
         r_list = []
-        for tk, tp in zip(self.token_list, self.type_list):
-            if tp in ('NEWLINE', 'INDENT', 'DEDENT'):
-                continue
 
-            elif tp in ('OP', 'KEYWORD'):
-                r_list.append(tk)
-            elif tp in ('STRING',):
-                r_list.append(tp)
-            else:
-                r_list.append(tp)
+        for tk, tp in zip(self.token_list, self.type_list):
+            if tp in ('NEWLINE', 'INDENT', 'DEDENT'): continue
+            r_list.append(tp)
+
         return r_list
 
 
