@@ -7,6 +7,7 @@ import torch
 import options
 import table
 import table.IO
+from pprint import pprint
 
 arg_parser = argparse.ArgumentParser()
 options.set_common_options(arg_parser)
@@ -24,10 +25,9 @@ if args.beam_size > 0:
 def main():
     js_list = [
         table.IO.preprocess_json({
-            "token": ["SomeFunction", "(", "min", ",", "max", ")"],
-            "src"  : "call the function SomeFunction with arguments min and max".split(),
-            "succ" : True,
-            "type" : ["NAME", "OP", "NAME", "OP", "NAME", "OP"]  # TODO
+            "token": ["val", "=", "1", "+", "2"],
+            "src"  : "val is the sum of 1 and 2".split(),
+            "type" : ["NAME", "OP", "NUMBER", "OP", "NUMBER"]
         })
     ]
 
@@ -46,7 +46,7 @@ def main():
     r_list = []
     for i, batch in enumerate(test_data):
         r = translator.translate(batch)
-        print(i, r)
+        pprint(r[0])
         r_list += r
 
     r_list.sort(key=lambda x: x.idx)

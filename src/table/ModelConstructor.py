@@ -13,9 +13,6 @@ import table.modules
 from table.Models import CopyGenerator, LayCoAttention, ParserModel, QCoAttention, RNNEncoder, SeqDecoder
 from table.modules.Embeddings import PartUpdateEmbedding
 
-DATA_MODEL_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../../data_model')
-EMB_FILE = os.path.join(DATA_MODEL_DIR, 'glove.840B.300d.txt')
-
 
 def load_orig_glove(emb_file: str) -> dict:
     def get_coefs(word, *arr):
@@ -32,38 +29,32 @@ def load_orig_glove(emb_file: str) -> dict:
     return emb
 
 
-def load_glove_fine_tuned(vocab_file, pt_emb_file, ft_emb_file, get_only_dict=False):
+def load_glove_fine_tuned(args, get_only_dict=False):
     """
-    :param vocab_file: word2idx vocabulary
-    :param pt_emb_file: pre-trained embeddings
-    :param ft_emb_file: fine-tuned embeddings
-    :param get_only_dict: return dict if true, otherwise return Vectors
-    :return:
+    :return: return dict if get_only_dict is True, otherwise return Vectors
     """
 
-    _cache = DATA_MODEL_DIR
-    _name = ft_emb_file.split("/")[-1] if "/" in ft_emb_file else ft_emb_file
+    _cache = os.path.dirname(args.word_embeddings)
+    _name = os.path.basename(args.word_embeddings)
 
-    print(" * load vocab from [%s]" % vocab_file)
-    print(" * load glove fined-tuned from [%s]" % os.path.join(_cache, _name + ".pt"))
+    assert os.path.join(_cache, _name) == args.word_embeddings
 
-    if os.path.isfile(os.path.join(_cache, _name + ".pt")):
-        print(" * returning existing .pt file")
-        return torchtext.vocab.Vectors(name=_name, cache=_cache)
+    print(" * load vocab from [%s]" % args.vocab_file)
+    print(" * load pre-trained glove from [%s]" % args.pt_embeddings)
+    print(" * load fine-tuned glove from [%s]" % args.word_embeddings)
 
-    glove_emb = load_orig_glove(pt_emb_file)
+    glove_emb = load_orig_glove(args.pt_embeddings)
 
-    ft_glove_emb_arr = pickle.load(open(ft_emb_file, "rb"))
-    vocab = pickle.load(open(vocab_file, "rb"))
+    ft_glove_emb_arr = pickle.load(open(args.word_embeddings, "rb"))
+    vocab = pickle.load(open(args.vocab_file, "rb"))
 
     ft_glove_emb = {w: ft_glove_emb_arr[i] for w, i in vocab.items()}
 
-    print(" * mixing embeddings")
-    for w in tqdm(ft_glove_emb):
+    for w in tqdm(ft_glove_emb, desc="Mixing embeddings: (%.2f ft, %.2f pt)" % (args.ft_factor, args.pt_factor)):
         if w not in glove_emb:
             glove_emb[w] = ft_glove_emb[w]
         else:
-            glove_emb[w] = 0.5 * ft_glove_emb[w] + 0.5 * glove_emb[w]
+            glove_emb[w] = args.ft_factor * ft_glove_emb[w] + args.pt_factor * glove_emb[w]
 
     if get_only_dict:
         print(" * returning emb dict")
@@ -77,16 +68,14 @@ def load_glove_fine_tuned(vocab_file, pt_emb_file, ft_emb_file, get_only_dict=Fa
         stoi = {}
         vectors = {}
 
-        for i, w in tqdm(enumerate(glove_emb), total=len(glove_emb)):
+        for i, w in tqdm(enumerate(glove_emb), total=len(glove_emb), desc="Construct stoi and vectors"):
             stoi[w] = i
             vectors[i] = torch.FloatTensor(glove_emb[w])
 
         dim = len(vectors[0])
-        assert dim == 300
-
         torch.save([itos, stoi, vectors, dim], os.path.join(_cache, _name + ".pt"))
 
-        # len(vocab) x 300
+        # len(vocab) x dim
         return torchtext.vocab.Vectors(name=_name, cache=_cache)
 
 
@@ -97,14 +86,17 @@ def make_word_embeddings(args, vocab: torchtext.vocab.Vocab):
 
     print(" * using embeddings [%s]" % args.word_embeddings)
 
-    if len(args.word_embeddings) > 0:
+    if args.word_embeddings != '':  # TODO: might get rid of this check?
+
         # load custom embeddings
         if args.use_custom_embeddings:
-            vocab.load_vectors(vectors=[
-                load_glove_fine_tuned(args.vocab_file, EMB_FILE, args.word_embeddings)
-            ])
+            print(" * loading custom embeddings")
+            vocab.load_vectors(vectors=[load_glove_fine_tuned(args, get_only_dict=False)])
             emb_word.weight.data.copy_(vocab.vectors)
+
         else:
+            print(" * using default embeddings")
+
             if args.word_emb_size == 150:
                 dim_list = ['100', '50']
             elif args.word_emb_size == 250:
@@ -115,6 +107,7 @@ def make_word_embeddings(args, vocab: torchtext.vocab.Vocab):
             vectors = [torchtext.vocab.GloVe(name="6B", cache=args.word_embeddings, dim=it) for it in dim_list]
             vocab.load_vectors(vectors)
             emb_word.weight.data.copy_(vocab.vectors)
+    # ---
 
     if args.fix_word_vecs:
         # <unk> is 0

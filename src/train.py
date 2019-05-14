@@ -56,7 +56,7 @@ if args.layers != -1:
 args.brnn = (args.encoder_type == "brnn")
 
 set_seed(args.seed)
-cli_logger.info("Using seed: %d" % args.seed)
+cli_logger.info(" * using seed: %d" % args.seed)
 
 
 def report_func(epoch: int, batch: int, num_batches: int, start_time: float, lr: float, report_stats: table.Statistics):
@@ -100,7 +100,6 @@ def load_fields(train_data, valid_data, checkpoint):
 
 def build_model(model_args, fields, checkpoint):
     model = table.ModelConstructor.make_base_model(model_args, fields, checkpoint)
-
     return model
 
 
@@ -108,7 +107,7 @@ def build_optimizer(model, checkpoint=None):
     if args.train_from:
         assert checkpoint is not None
 
-        cli_logger.info('Loading optimizer from checkpoint.')
+        cli_logger.info(' * loading optimizer from checkpoint')
         optim = checkpoint['optim']
         optim.optimizer.load_state_dict(checkpoint['optim'].optimizer.state_dict())
 
@@ -174,7 +173,7 @@ def train(model, train_data, valid_data, fields, optim):
 
 
 def main():
-    cli_logger.info("Loading train and valid data from %s" % args.dataset_dir)
+    cli_logger.info(" * loading train and valid data from %s" % args.dataset_dir)
 
     train_data = torch.load(os.path.join(args.dataset_dir, 'train.pt'))
     valid_data = torch.load(os.path.join(args.dataset_dir, 'valid.pt'))
@@ -183,26 +182,27 @@ def main():
     cli_logger.info(' * maximum batch size: %d' % args.batch_size)
 
     if args.train_from:
-        cli_logger.info('Loading checkpoint from %s' % args.train_from)
+        cli_logger.info(' * loading checkpoint from %s' % args.train_from)
 
         checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
         model_args = checkpoint['opt']
 
         args.start_epoch = checkpoint['epoch'] + 1
     else:
+        cli_logger.info(' * training from scratch')
         checkpoint = None
         model_args = args
 
-    cli_logger.info("Loading fields generated from preprocessing phase")
+    cli_logger.info(" * loading fields generated from preprocessing phase")
     fields = load_fields(train_data, valid_data, checkpoint)
 
-    cli_logger.info("Building model")
+    cli_logger.info(" * building model")
     model = build_model(model_args, fields, checkpoint)
 
-    cli_logger.info("Building optimizer")
+    cli_logger.info(" * building optimizer")
     optim = build_optimizer(model, checkpoint)
 
-    cli_logger.info("Start training")
+    cli_logger.info(" * start training")
     train(model, train_data, valid_data, fields, optim)
 
 

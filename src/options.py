@@ -19,11 +19,16 @@ def set_model_options(parser):
 
     # Embedding Options
     parser.add_argument('-vocab_file', type=str, help='Path to the vocab file')
-    parser.add_argument('-use_custom_embeddings', action="store_true", help='Whether custom embeddings (and loading) are used.')
     parser.add_argument('-word_embeddings', type=str, help='Path to word embeddings file.')
     parser.add_argument('-word_emb_size', type=int, default=250, help='Word embedding for both.')
     parser.add_argument('-ent_vec_size', type=int, default=0, help='Entity type embedding size.')
     parser.add_argument('-decoder_input_size', type=int, default=200, help='Layout embedding size.')
+
+    # if custom embeddings are used
+    parser.add_argument('-use_custom_embeddings', action="store_true", help='Whether to use custom embeddings (and loading).')
+    parser.add_argument('-pt_embeddings', type=str, help='Path to pre-trained word embeddings file.')
+    parser.add_argument('-pt_factor', type=float, default=0.5, help='How much to account for original vectors [0,1]')
+    parser.add_argument('-ft_factor', type=float, default=0.5, help='How much to account for fine-tuned vectors [0,1]')
 
     # RNN Options
     parser.add_argument('-separate_encoder', action="store_true", help="Use different encoders for layout and target decoding.")
