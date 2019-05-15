@@ -1,8 +1,8 @@
-numpy==1.15.2
-termcolor==1.1.0
-torchtext==0.2.0
-pandas==0.24.2
-torch==0.2.0.post0
-nltk==3.2.5
-tqdm==4.31.1
-tensorboardX==1.6
+tqdm
+nltk
+torchtext
+torch
+termcolor
+numpy
+forked_path
+tensorboardX

@@ -9,8 +9,8 @@ LFT_WORD = '<[>'
 
 class SketchRepresentation(object):
     def __init__(self, init):
-        self.token_list = None
-        self.type_list = None
+        self.code_token_list = None
+        self.sketch_token_list = None
 
         if init is not None:
             if isinstance(init, list):
@@ -24,52 +24,50 @@ class SketchRepresentation(object):
 
     def set_by_str(self, f):
         tk_list = list(tokenize(BytesIO(f.strip().encode('utf-8')).readline))[1:-1]
-        self.token_list = [tk.string for tk in tk_list]
-        self.type_list = [token.tok_name[tk.type] for tk in tk_list]
+        self.code_token_list = [tk.string for tk in tk_list]
+        self.sketch_token_list = [token.tok_name[tk.type] for tk in tk_list]
 
     # well-tokenized token list
-    def set_by_list(self, token_list, type_list):
-        self.token_list = list(token_list)
-        if type_list is not None:
-            self.type_list = list(type_list)
+    def set_by_list(self, code_token_list, sketch_token_list):
+        self.code_token_list = list(code_token_list)
+        if sketch_token_list is not None:
+            self.sketch_token_list = list(sketch_token_list)
 
     def to_list(self):
-        return self.token_list
+        return self.code_token_list
 
     def __str__(self):
         return ' '.join(self.to_list())
 
     def layout(self, add_skip=False):
-        assert len(self.token_list) == len(self.type_list)
+        assert len(self.code_token_list) == len(self.sketch_token_list)
+
         r_list = []
-        for tk, tp in zip(self.token_list, self.type_list):
-            if tp in ('OP', 'KEYWORD'):
-                r_list.append(tk)
-            elif tp in ('STRING',):
+        for code_tok, sketch_tok in zip(self.code_token_list, self.sketch_token_list):
+            if sketch_tok in ['OP', 'KEYWORD']:
+                r_list.append(code_tok)
+            elif sketch_tok in ['STRING']:
                 if add_skip:
-                    s_list = tk.split(' ')
-                    r_list.extend(
-                        [LFT_WORD] + [SKP_WORD for __ in range(len(s_list) - 2)] + [RIG_WORD])
+                    s_list = code_tok.split(' ')
+                    r_list.extend([LFT_WORD] + [SKP_WORD for __ in range(len(s_list) - 2)] + [RIG_WORD])
                 else:
-                    r_list.append(tp)
-            # elif tp in ('NAME', 'NUMBER'):
-            #     if add_skip:
-            #         r_list.append(SKP_WORD)
-            #     else:
-            #         r_list.append(tp)
+                    r_list.append(sketch_tok)
             else:
-                r_list.append(tp)
+                r_list.append(sketch_tok)
+
         return r_list
 
     def target(self):
-        assert len(self.token_list) == len(self.type_list)
+        assert len(self.code_token_list) == len(self.sketch_token_list)
+
         r_list = []
-        for tk, tp in zip(self.token_list, self.type_list):
-            if tp in ('STRING',):
-                s_list = tk.split(' ')
+        for code_tok, sketch_tok in zip(self.code_token_list, self.sketch_token_list):
+            if sketch_tok in ['STRING']:
+                s_list = code_tok.split(' ')
                 r_list.extend([LFT_WORD] + s_list[1:-1] + [RIG_WORD])
             else:
-                r_list.append(tk)
+                r_list.append(code_tok)
+
         return r_list
 
     def norm(self, not_layout=False):

@@ -1,0 +1,8 @@
+["NAME", ".", "NAME", "=", "NAME", ".", "NAME"]
+["NAME", "OP", "NAME", "OP", "NAME", "OP", "NAME"]
+
+["logger", ".", "level", "=", "logging", ".", "NOTSET"]
+["logger", ".", "level", "=", "logging", ".", "NOTSET"]
+
+["substitute", "logging.NOTSET", "for", "logger.level"]
+["substitute", "logging.NOTSET", "[", "logging", ".", "NOTSET", "]", "for", "logger.level", "[", "logger", ".", "level", "]", "."]

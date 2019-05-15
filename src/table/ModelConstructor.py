@@ -245,10 +245,4 @@ def make_base_model(model_args, fields, checkpoint=None):
         print(' * loading model from checkpoint [%s]' % model_args.model_path)
         model.load_state_dict(checkpoint['model'])
 
-    if model_args.cuda:
-        print(" * put on cuda")
-        model.cuda()
-    else:
-        print(" * put on cpu")
-
     return model

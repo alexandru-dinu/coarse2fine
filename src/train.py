@@ -100,6 +100,14 @@ def load_fields(train_data, valid_data, checkpoint):
 
 def build_model(model_args, fields, checkpoint):
     model = table.ModelConstructor.make_base_model(model_args, fields, checkpoint)
+    print(model)
+
+    if model_args.cuda:
+        print(" * use cuda")
+        model.cuda()
+    else:
+        print(" * use cpu")
+
     return model
 
 

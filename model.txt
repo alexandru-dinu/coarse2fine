@@ -1,0 +1,50 @@
+ParserModel (
+    (q_encoder): RNNEncoder (
+        (embeddings): Embedding(3062, 250, padding_idx=1)
+        (word_dropout): LockedDropout ()
+        (rnn): LSTM(250, 150, dropout=0.3, bidirectional=True)
+    )
+
+    (lay_decoder): SeqDecoder (
+        (embeddings): Embedding(151, 200, padding_idx=1)
+        (word_dropout): LockedDropout ()
+        (rnn): LSTM(200, 300, dropout=0.3)
+        (attn): GlobalAttention (
+          (linear_out): Linear (600 -> 300)
+          (sm): Softmax ()
+          (tanh): Tanh ()
+        )
+    )
+
+    => SKETCH
+
+    (lay_classifier): Sequential (
+        (0): Dropout (p = 0.3)
+        (1): Linear (300 -> 151)
+        (2): LogSoftmax ()
+    )
+
+    (lay_encoder): RNNEncoder (
+        (embeddings): Embedding(151, 200, padding_idx=1)
+        (word_dropout): LockedDropout ()
+        (rnn): LSTM(200, 100, dropout=0.3, bidirectional=True)
+    )
+
+    (tgt_embeddings): Embedding(1689, 200, padding_idx=1)
+
+    (tgt_decoder): SeqDecoder (
+        (word_dropout): LockedDropout ()
+        (rnn): LSTM(200, 300, dropout=0.3)
+        (attn): GlobalAttention (
+          (linear_out): Linear (600 -> 300)
+          (sm): Softmax ()
+          (tanh): Tanh ()
+        )
+    )
+
+    (tgt_classifier): CopyGenerator (
+        (dropout): Dropout (p = 0.3)
+        (linear): Linear (300 -> 1689)
+        (linear_copy): Linear (300 -> 1)
+    )
+)

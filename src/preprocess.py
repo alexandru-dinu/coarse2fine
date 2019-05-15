@@ -2,7 +2,6 @@ import argparse
 import os
 
 import torch
-from path import Path
 
 import cli_logger
 import options
@@ -13,9 +12,12 @@ from table.Utils import set_seed
 arg_parser = argparse.ArgumentParser(description='preprocess.py')
 
 arg_parser.add_argument('-config', help="Read options from this file")
-arg_parser.add_argument('-src_vocab', help="Path to an existing source vocabulary")
-arg_parser.add_argument('-tgt_vocab', help="Path to an existing target vocabulary")
-arg_parser.add_argument('-report_every', type=int, default=100000, help="Report status every this many sentences")
+
+# TODO
+# arg_parser.add_argument('-src_vocab', help="Path to an existing source vocabulary")
+# arg_parser.add_argument('-tgt_vocab', help="Path to an existing target vocabulary")
+# arg_parser.add_argument('-report_every', type=int, default=100000, help="Report status every this many sentences")
+#  ---
 
 options.set_common_options(arg_parser)
 options.set_preprocess_options(arg_parser)
@@ -32,44 +34,44 @@ if args.cuda:
 
 
 def main():
-    cli_logger.info('Preparing Training ...')
     fields = table.IO.TableDataset.get_fields()
 
-    cli_logger.info("Building Training...")
+    cli_logger.info(" * building training")
     train = table.IO.TableDataset(args.train_anno, fields, args.permute_order, args, True)
 
-    if Path(args.valid_anno).exists():
-        cli_logger.info("Building Valid...")
+    if os.path.isfile(args.valid_anno):
+        cli_logger.info(" * building valid")
         valid = table.IO.TableDataset(args.valid_anno, fields, permute_order=0, args=args, filter_ex=True)
     else:
         valid = None
 
-    if Path(args.test_anno).exists():
-        cli_logger.info("Building Test...")
+    if os.path.isfile(args.test_anno):
+        cli_logger.info(" * building test")
         test = table.IO.TableDataset(args.test_anno, fields, permute_order=0, args=args, filter_ex=False)
     else:
         test = None
 
-    cli_logger.info("Building Vocab...")
+    cli_logger.info(" * building vocab")
     table.IO.TableDataset.build_vocab(train, valid, test, args)
 
-    # Can't save fields, so remove/reconstruct at training time.
-    cli_logger.info("Saving vocab.pt")
+    cli_logger.info(" * saving vocab.pt")
     torch.save(table.IO.TableDataset.save_vocab(fields), open(os.path.join(args.save_data, 'vocab.pt'), 'wb'))
+
+    # can't save fields, so remove/reconstruct at training time.
+
     train.fields = []
-
+    cli_logger.info(" * saving train.pt")
     torch.save(train, open(os.path.join(args.save_data, 'train.pt'), 'wb'))
-    cli_logger.info("Saving train.pt")
 
-    if Path(args.valid_anno).exists():
+    if os.path.isfile(args.valid_anno):
         valid.fields = []
+        cli_logger.info(" * saving valid.pt")
         torch.save(valid, open(os.path.join(args.save_data, 'valid.pt'), 'wb'))
-        cli_logger.info("Saving valid.pt")
 
-    if Path(args.test_anno).exists():
+    if os.path.isfile(args.test_anno):
         test.fields = []
+        cli_logger.info(" * saving test.pt")
         torch.save(test, open(os.path.join(args.save_data, 'test.pt'), 'wb'))
-        cli_logger.info("Saving test.pt")
 
 
 if __name__ == "__main__":

@@ -142,8 +142,9 @@ def preprocess_json(js):
 
     js['lay'] = t.layout(add_skip=False)
     js['lay_skip'] = t.layout(add_skip=True)
-    assert len(t.target()) == len(js['lay_skip']), (list(zip(t.target(), js['lay_skip'])), ' '.join(js['tgt']))
     js['tgt'] = t.target()
+
+    assert len(t.target()) == len(js['lay_skip']), (list(zip(t.target(), js['lay_skip'])), ' '.join(js['tgt']))
 
     return js
 
@@ -248,8 +249,7 @@ class TableDataset(torchtext.data.Dataset):
         def filter_pred(example):
             return True
 
-        super(TableDataset, self).__init__(
-            construct_final(examples), fields, filter_pred)
+        super(TableDataset, self).__init__(construct_final(examples), fields, filter_pred)
 
     def _read_annotated_file(self, args, js_list, field, filter_ex):
         """
@@ -376,20 +376,18 @@ class TableDataset(torchtext.data.Dataset):
 
         # build vocabulary only based on the training set
         for field_name in ('src', 'lay', 'lay_e'):
-            fields[field_name].build_vocab(
-                train, min_freq=opt.src_words_min_frequency)
+            fields[field_name].build_vocab(train, min_freq=opt.src_words_min_frequency)
 
         # build vocabulary only based on the training set
         for field_name in ('tgt', 'tgt_loss'):
-            fields[field_name].build_vocab(
-                train, min_freq=opt.tgt_words_min_frequency)
+            fields[field_name].build_vocab(train, min_freq=opt.tgt_words_min_frequency)
 
         for field_name in ('src', 'lay', 'lay_e'):
-            fields[field_name].vocab = merge_vocabs(
-                [fields[field_name].vocab], min_freq=opt.src_words_min_frequency)
+            fields[field_name].vocab = merge_vocabs([fields[field_name].vocab], min_freq=opt.src_words_min_frequency)
 
         tgt_merge_name_list = ['tgt', 'tgt_loss']
         tgt_merge = merge_vocabs([fields[field_name].vocab for field_name in tgt_merge_name_list], min_freq=opt.tgt_words_min_frequency)
+
         for field_name in tgt_merge_name_list:
             fields[field_name].vocab = tgt_merge
 
