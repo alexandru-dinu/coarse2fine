@@ -191,7 +191,8 @@ def main():
     train_data = torch.load(os.path.join(args.dataset_dir, 'train.pt'))
     valid_data = torch.load(os.path.join(args.dataset_dir, 'valid.pt'))
 
-    logger.info(' * number of training sentences: %d' % len(train_data))
+    logger.info(' * number of training examples: %d' % len(train_data))
+    logger.info(' * number of validation examples: %d' % len(valid_data))
     logger.info(' * maximum batch size: %d' % args.batch_size)
 
     if args.train_from:
