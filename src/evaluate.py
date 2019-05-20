@@ -23,6 +23,7 @@ options.set_model_options(arg_parser)
 options.set_translation_options(arg_parser)
 args = arg_parser.parse_args()
 
+logger.warning('* evaluating on %s split' % args.split)
 args.anno = os.path.join(args.root_dir, args.dataset, '{}.json'.format(args.split))
 
 if args.cuda:
@@ -44,6 +45,10 @@ def dict_update(src: dict, new_data: dict):
     return src
 
 
+def _apply_twice(f, x):
+    return f(f(x))
+
+
 def main():
     js_list = table.IO.read_anno_json(args.anno)
 
@@ -52,13 +57,17 @@ def main():
     prev_best = (None, None)
 
     for cur_model in glob.glob(args.model_path):
+        assert cur_model.endswith(".pt")
+
+        exp_name = _apply_twice(os.path.dirname, cur_model).split("/")[-1]
+
         args.model = cur_model
         logger.info(" * evaluating model [%s]" % cur_model)
 
         checkpoint = torch.load(args.model, map_location=lambda storage, loc: storage)
         model_args = checkpoint['opt']
 
-        fp = open("./experiments/%s/%s-eval.txt" % (model_args.exp_name, args.model.split("/")[-1]), "wt")
+        fp = open("./experiments/%s/%s-%s-eval.txt" % (exp_name, args.model.split("/")[-1], args.split), "wt")
 
         # translator model
         translator = table.Translator(args, checkpoint)
@@ -112,9 +121,9 @@ def main():
         dump_cfg(fp, cfg=dict_update(args.__dict__, model_args.__dict__))
         fp.close()
 
-    if (args.split == 'dev') and (prev_best[0] is not None):
-        with codecs.open(os.path.join(args.root_dir, args.dataset, 'dev_best.txt'), 'w', encoding='utf-8') as f_out:
-            f_out.write('{}\n'.format(prev_best[0]))
+    # if (args.split == 'dev') and (prev_best[0] is not None):
+    #     with codecs.open(os.path.join(args.root_dir, args.dataset, 'dev_best.txt'), 'w', encoding='utf-8') as f_out:
+    #         f_out.write('{}\n'.format(prev_best[0]))
 
 
 if __name__ == "__main__":
