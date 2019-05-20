@@ -1,6 +1,8 @@
+import logging
 import os
 import pickle
 
+import coloredlogs
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,16 +15,19 @@ import table.modules
 from table.Models import CopyGenerator, LayCoAttention, ParserModel, QCoAttention, RNNEncoder, SeqDecoder
 from table.modules.Embeddings import PartUpdateEmbedding
 
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG')
+
 
 def load_orig_glove(emb_file: str) -> dict:
     def get_coefs(word, *arr):
         return word, np.asarray(arr, dtype='float32')
 
     if os.path.isfile(emb_file + ".pickle"):
-        print(" * load glove from pickle")
+        logger.info(" * load glove from pickle")
         emb = pickle.load(open(emb_file + ".pickle", "rb"))
     else:
-        print(" * load glove from txt, dumping to pickle")
+        logger.info(" * load glove from txt, dumping to pickle")
         emb = dict(get_coefs(*o.split(" ")) for o in open(emb_file, encoding='latin'))
         pickle.dump(emb, open(emb_file + ".pickle", "wb"))
 
@@ -39,9 +44,9 @@ def load_glove_fine_tuned(args, get_only_dict=False):
 
     assert os.path.join(_cache, _name) == args.word_embeddings
 
-    print(" * load vocab from [%s]" % args.vocab_file)
-    print(" * load pre-trained glove from [%s]" % args.pt_embeddings)
-    print(" * load fine-tuned glove from [%s]" % args.word_embeddings)
+    logger.info(" * load vocab from [%s]" % args.vocab_file)
+    logger.info(" * load pre-trained glove from [%s]" % args.pt_embeddings)
+    logger.info(" * load fine-tuned glove from [%s]" % args.word_embeddings)
 
     glove_emb = load_orig_glove(args.pt_embeddings)
 
@@ -57,11 +62,11 @@ def load_glove_fine_tuned(args, get_only_dict=False):
             glove_emb[w] = args.ft_factor * ft_glove_emb[w] + args.pt_factor * glove_emb[w]
 
     if get_only_dict:
-        print(" * returning emb dict")
+        logger.info(" * returning emb dict")
         return glove_emb
 
     else:
-        print(" * returning torchtext.vocab.Vectors")
+        logger.info(" * returning torchtext.vocab.Vectors")
 
         # save emb_dict as .pt
         itos = list(glove_emb.keys())
@@ -84,18 +89,18 @@ def make_word_embeddings(args, vocab: torchtext.vocab.Vocab):
     num_word = len(vocab)
     emb_word = nn.Embedding(num_word, args.word_emb_size, padding_idx=word_padding_idx)
 
-    print(" * using embeddings [%s]" % args.word_embeddings)
+    logger.info(" * using embeddings [%s]" % args.word_embeddings)
 
     if args.word_embeddings != '':  # TODO: might get rid of this check?
 
         # load custom embeddings
         if args.use_custom_embeddings:
-            print(" * loading custom embeddings")
+            logger.info(" * loading custom embeddings")
             vocab.load_vectors(vectors=[load_glove_fine_tuned(args, get_only_dict=False)])
             emb_word.weight.data.copy_(vocab.vectors)
 
         else:
-            print(" * using default embeddings")
+            logger.info(" * using default embeddings")
 
             if args.word_emb_size == 150:
                 dim_list = ['100', '50']
@@ -176,33 +181,41 @@ def make_decoder(args, fields, field_name, embeddings, input_size):
             args.dropout, args.rnn_size, args.rnn_size,
             fields['tgt'].vocab, fields['copy_to_ext'].vocab, args.copy_prb
         )
-    else:
+
+    elif field_name == 'lay':
         classifier = nn.Sequential(
             nn.Dropout(args.dropout),
             nn.Linear(args.rnn_size, len(fields[field_name].vocab)),
             nn.LogSoftmax()
         )
 
+    else:
+        raise RuntimeError("Unknown field name [%s]" % field_name)
+
     return decoder, classifier
 
 
 def make_base_model(model_args, fields, checkpoint=None):
-    print(" * make word embeddings")
+    logger.info(" * make word embeddings")
     w_embeddings = make_word_embeddings(model_args, vocab=fields["src"].vocab)
 
     if model_args.ent_vec_size > 0:
+        logger.info(" * make entity type embeddings")
         ent_embedding = make_embeddings(fields["ent"].vocab, model_args.ent_vec_size)
     else:
         ent_embedding = None
 
-    print(" * make question encoder")
+    logger.info(" * make question encoder")
     q_encoder = make_encoder(model_args, w_embeddings, ent_embedding)
+
+    # TODO???
     if model_args.separate_encoder:
         q_tgt_encoder = make_encoder(model_args, w_embeddings, ent_embedding)
         q_encoder = (q_encoder, q_tgt_encoder)
 
     if model_args.layout_token_prune:
-        w_token_embeddings = make_word_embeddings(model_args, fields["src"].vocab)
+        logger.info(" * make layout token pruner")
+        w_token_embeddings = make_word_embeddings(model_args, vocab=fields["src"].vocab)
         q_token_encoder = make_encoder(model_args, w_token_embeddings, ent_embedding)
         token_pruner = nn.Sequential(
             nn.Dropout(model_args.dropout),
@@ -212,29 +225,32 @@ def make_base_model(model_args, fields, checkpoint=None):
         q_token_encoder = None
         token_pruner = None
 
-    print(" * make layout decoder models")
-    lay_field = 'lay'
-    lay_embeddings = make_embeddings(fields[lay_field].vocab, model_args.decoder_input_size)
-    lay_decoder, lay_classifier = make_decoder(model_args, fields, lay_field, lay_embeddings, model_args.decoder_input_size)
+    logger.info(" * make layout embeddings")
+    lay_embeddings = make_embeddings(fields['lay'].vocab, model_args.decoder_input_size)
+    logger.info(" * make layout decoder + classifier")
+    lay_decoder, lay_classifier = make_decoder(model_args, fields, 'lay', lay_embeddings, model_args.decoder_input_size)
 
-    print(" * make target decoder models")
     if model_args.no_share_emb_layout_encoder:
-        lay_encoder_embeddings = make_embeddings(
-            fields[lay_field].vocab, model_args.decoder_input_size)
+        lay_encoder_embeddings = make_embeddings(fields['lay'].vocab, model_args.decoder_input_size)
     else:
         lay_encoder_embeddings = lay_embeddings
+
     if model_args.no_lay_encoder:
         lay_encoder = lay_embeddings
     else:
         lay_encoder = make_layout_encoder(model_args, lay_encoder_embeddings)
 
+    logger.info(" * make question co-attention")
     q_co_attention = make_q_co_attention(model_args)
+    logger.info(" * make layout co-attention")
     lay_co_attention = make_lay_co_attention(model_args)
 
+    logger.info(" * make target embeddings")
     tgt_embeddings = make_embeddings(fields['tgt'].vocab, model_args.decoder_input_size)
+    logger.info(" * make target decoder + classifier")
     tgt_decoder, tgt_classifier = make_decoder(model_args, fields, 'tgt', None, model_args.decoder_input_size)
 
-    print(" * make ParserModel")
+    logger.info(" * make ParserModel")
     model = ParserModel(
         q_encoder, q_token_encoder, token_pruner, lay_decoder, lay_classifier,
         lay_encoder, q_co_attention, lay_co_attention, tgt_embeddings,
@@ -242,7 +258,13 @@ def make_base_model(model_args, fields, checkpoint=None):
     )
 
     if checkpoint is not None:
-        print(' * loading model from checkpoint [%s]' % model_args.model_path)
+        logger.info(' * loading model from checkpoint [%s]' % model_args.model_path)
         model.load_state_dict(checkpoint['model'])
+
+    if model_args.cuda:
+        logger.info(" * use cuda")
+        model.cuda()
+    else:
+        logger.info(" * use cpu")
 
     return model

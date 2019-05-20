@@ -4,16 +4,21 @@ in charge of training details, loss compute, and statistics.
 """
 from __future__ import division
 
+import logging
 import os
 import sys
 import time
 from copy import deepcopy
 
+import coloredlogs
 import torch
 
 import table
 import table.modules
 from table.Utils import argmax
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG')
 
 
 class Statistics(object):
@@ -45,11 +50,10 @@ class Statistics(object):
         return time.time() - self.start_time
 
     def print_output(self, epoch, batch, n_batches, start):
-        print(
+        logger.info(
             "Epoch %2d, Batch %5d/%5d, Loss %f; Accuracy %s; Time %.0f s elapsed" %
             (epoch, batch, n_batches, self.loss, self.accuracy(return_str=True), time.time() - start)
         )
-        sys.stdout.flush()
 
     def log(self, split, logger, lr, step):
         pass

@@ -74,23 +74,26 @@ class SketchRepresentation(object):
         return self
 
 
-def is_code_eq(t1, t2, not_layout=False):
-    if isinstance(t1, SketchRepresentation):
-        t1 = str(t1)
-    else:
-        t1 = ' '.join(t1)
-    if isinstance(t2, SketchRepresentation):
-        t2 = str(t2)
-    else:
-        t2 = ' '.join(t2)
+def is_code_eq(tokens1, tokens2, not_layout=False):
+    # TODO: make smarter
 
-    t1 = ['\"' if it in (RIG_WORD, LFT_WORD) else it for it in t1.split(' ')]
-    t2 = ['\"' if it in (RIG_WORD, LFT_WORD) else it for it in t2.split(' ')]
+    if isinstance(tokens1, SketchRepresentation):
+        tokens1 = str(tokens1)
+    else:
+        tokens1 = ' '.join(tokens1)
 
-    if len(t1) != len(t2):
+    if isinstance(tokens2, SketchRepresentation):
+        tokens2 = str(tokens2)
+    else:
+        tokens2 = ' '.join(tokens2)
+
+    tokens1 = ['\"' if it in (RIG_WORD, LFT_WORD) else it for it in tokens1.split(' ')]
+    tokens2 = ['\"' if it in (RIG_WORD, LFT_WORD) else it for it in tokens2.split(' ')]
+
+    if len(tokens1) != len(tokens2):
         return False
 
-    return all(map(lambda tk1, tk2: tk1 == tk2, t1, t2))
+    return all(map(lambda tk1, tk2: tk1 == tk2, tokens1, tokens2))
 
 
 if __name__ == '__main__':

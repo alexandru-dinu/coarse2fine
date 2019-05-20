@@ -62,7 +62,7 @@ def get_lay_index(lay_skip):
     return r_list
 
 
-def get_tgt_loss(line, mask_target_loss):
+def get_tgt_loss(line, mask_target_loss: bool) -> list:
     r_list = []
     for tk_tgt, tk_lay_skip in zip(line['tgt'], line['lay_skip']):
         if tk_lay_skip in (SKP_WORD, RIG_WORD):
@@ -165,17 +165,17 @@ class TableDataset(torchtext.data.Dataset):
         """Sort in reverse size order"""
         return -len(ex.src)
 
-    def __init__(self, examples, fields, permute_order, args, filter_ex, **kwargs):
+    def __init__(self, file_path, fields, permute_order, args, filter_ex, **kwargs):
         """
         Create a TranslationDataset given paths and fields.
 
         anno: location of annotated data / js_list
         filter_ex: False - keep all the examples for evaluation (should not have filtered examples); True - filter examples with unmatched spans;
         """
-        if isinstance(examples, str):
-            js_list = read_anno_json(examples)
+        if isinstance(file_path, str):
+            js_list = read_anno_json(file_path)
         else:
-            js_list = examples
+            js_list = file_path
 
         src_data = self._read_annotated_file(args, js_list, 'src', filter_ex)
         src_examples = self._construct_examples(src_data, 'src')
@@ -243,8 +243,7 @@ class TableDataset(torchtext.data.Dataset):
 
         def construct_final(examples):
             for i, ex in enumerate(examples):
-                yield torchtext.data.Example.fromlist(
-                    [ex[k] for k in keys] + [i], fields)
+                yield torchtext.data.Example.fromlist([ex[k] for k in keys] + [i], fields)
 
         def filter_pred(example):
             return True
@@ -252,10 +251,6 @@ class TableDataset(torchtext.data.Dataset):
         super(TableDataset, self).__init__(construct_final(examples), fields, filter_pred)
 
     def _read_annotated_file(self, args, js_list, field, filter_ex):
-        """
-        path: location of a src or tgt file
-        truncate: maximum sequence length (0 for unlimited)
-        """
         if field in ('src', 'lay'):
             lines = (line[field] for line in js_list)
 
@@ -288,7 +283,7 @@ class TableDataset(torchtext.data.Dataset):
             lines = (_tgt_copy_ext(line) for line in js_list)
 
         elif field in ('tgt_loss',):
-            lines = (get_tgt_loss(line, False) for line in js_list)
+            lines = (get_tgt_loss(line, mask_target_loss=False) for line in js_list)
 
         elif field in ('tgt_mask',):
             lines = (get_tgt_mask(line['lay_skip']) for line in js_list)
@@ -309,9 +304,9 @@ class TableDataset(torchtext.data.Dataset):
             yield line
 
     @staticmethod
-    def _construct_examples(lines, side):
+    def _construct_examples(lines, field):
         for words in lines:
-            example_dict = {side: words}
+            example_dict = {field: words}
             yield example_dict
 
     def __getstate__(self):
@@ -364,7 +359,7 @@ class TableDataset(torchtext.data.Dataset):
         }
 
     @staticmethod
-    def build_vocab(train, dev, test, opt):
+    def build_vocab(train, dev, test, opt) -> None:
         fields = train.fields
 
         src_vocab_all = []

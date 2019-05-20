@@ -3,14 +3,19 @@ from __future__ import division
 import argparse
 import codecs
 import glob
+import logging
 import os
 
+import coloredlogs
 import torch
 from tqdm.auto import tqdm
 
 import options
 import table
 import table.IO
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG')
 
 arg_parser = argparse.ArgumentParser()
 options.set_common_options(arg_parser)
@@ -48,7 +53,7 @@ def main():
 
     for cur_model in glob.glob(args.model_path):
         args.model = cur_model
-        print(" * evaluating model [%s]" % cur_model)
+        logger.info(" * evaluating model [%s]" % cur_model)
 
         checkpoint = torch.load(args.model, map_location=lambda storage, loc: storage)
         model_args = checkpoint['opt']

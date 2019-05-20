@@ -14,13 +14,16 @@ from table.modules.embed_regularize import embedded_dropout
 
 
 def _build_rnn(rnn_type, input_size, hidden_size, num_layers, dropout, weight_dropout, bidirectional=False):
-    rnn = getattr(nn, rnn_type)(input_size, hidden_size,
-        num_layers=num_layers, dropout=dropout, bidirectional=bidirectional)
+    rnn = getattr(nn, rnn_type)(input_size, hidden_size, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional)
+
     if weight_dropout > 0:
         param_list = ['weight_hh_l' + str(i) for i in range(num_layers)]
+
         if bidirectional:
             param_list += [it + '_reverse' for it in param_list]
+
         rnn = table.modules.WeightDrop(rnn, param_list, dropout=weight_dropout)
+
     return rnn
 
 
@@ -36,18 +39,22 @@ class RNNEncoder(nn.Module):
         self.embeddings = embeddings
         self.ent_embedding = ent_embedding
         self.no_pack_padded_seq = False
+
         if lock_dropout:
             self.word_dropout = table.modules.LockedDropout(dropout_i)
         else:
             self.word_dropout = nn.Dropout(dropout_i)
+
         self.dropword = dropword
 
-        # Use pytorch version when available.
         input_size = embeddings.embedding_dim
+
         if ent_embedding is not None:
             input_size += ent_embedding.embedding_dim
-        self.rnn = _build_rnn(rnn_type, input_size,
-            hidden_size // num_directions, num_layers, dropout, weight_dropout, bidirectional)
+
+        self.rnn = _build_rnn(
+            rnn_type, input_size, hidden_size // num_directions, num_layers, dropout, weight_dropout, bidirectional
+        )
 
     def forward(self, input, lengths=None, hidden=None, ent=None):
         if self.training and (self.dropword > 0):
@@ -100,8 +107,9 @@ def encode_unsorted_batch(encoder, tbl, tbl_len, cuda=False):
 
 
 class SeqDecoder(nn.Module):
-    def __init__(self, rnn_type, bidirectional_encoder, num_layers, embeddings, input_size, hidden_size, attn_type, attn_hidden, dropout, dropout_i, lock_dropout, dropword,
-                 weight_dropout):
+    def __init__(self, rnn_type, bidirectional_encoder, num_layers, embeddings,
+                 input_size, hidden_size, attn_type, attn_hidden, dropout, dropout_i,
+                 lock_dropout, dropword, weight_dropout):
         super(SeqDecoder, self).__init__()
 
         # Basic attributes.
@@ -118,12 +126,10 @@ class SeqDecoder(nn.Module):
         self.dropword = dropword
 
         # Build the RNN.
-        self.rnn = _build_rnn(rnn_type, input_size,
-            hidden_size, num_layers, dropout, weight_dropout)
+        self.rnn = _build_rnn(rnn_type, input_size, hidden_size, num_layers, dropout, weight_dropout)
 
         # Set up the standard attention.
-        self.attn = table.modules.GlobalAttention(
-            hidden_size, True, attn_type=attn_type, attn_hidden=attn_hidden)
+        self.attn = table.modules.GlobalAttention(hidden_size, is_transform_out=True, attn_type=attn_type, attn_hidden=attn_hidden)
 
     def forward(self, inp, context, state, parent_index):
         """
@@ -285,8 +291,7 @@ class CoAttention(nn.Module):
         super(CoAttention, self).__init__()
 
         if (hidden_size != context_size) and (attn_type != 'mlp'):
-            self.linear_context = nn.Linear(
-                context_size, hidden_size, bias=False)
+            self.linear_context = nn.Linear(context_size, hidden_size, bias=False)
             context_size = hidden_size
         else:
             self.linear_context = None
@@ -296,10 +301,14 @@ class CoAttention(nn.Module):
         self.context_size = context_size
         self.no_pack_padded_seq = False
 
-        self.rnn = _build_rnn(rnn_type, hidden_size + context_size, hidden_size //
-                                        num_directions, num_layers, dropout, weight_dropout, bidirectional)
+        self.rnn = _build_rnn(
+            rnn_type, hidden_size + context_size, hidden_size // num_directions,
+            num_layers, dropout, weight_dropout, bidirectional
+        )
+
         self.attn = table.modules.GlobalAttention(
-            hidden_size, False, attn_type=attn_type, attn_hidden=attn_hidden, context_size=context_size)
+            hidden_size, False, attn_type=attn_type, attn_hidden=attn_hidden, context_size=context_size
+        )
 
 
 class QCoAttention(CoAttention):
@@ -329,16 +338,17 @@ class LayCoAttention(CoAttention):
     def run_rnn_unsorted_batch(self, emb, lengths):
         # sort for pack()
         idx_sorted, tbl_len_sorted, idx_map_back = sort_for_pack(lengths)
-        tbl_sorted = emb.index_select(1, Variable(
-            torch.LongTensor(idx_sorted).cuda(), requires_grad=False))
+        tbl_sorted = emb.index_select(1, Variable(torch.LongTensor(idx_sorted).cuda(), requires_grad=False))
+
         # tbl_context: (seq_len, batch, hidden_size * num_directions)
         packed_emb = pack(tbl_sorted, tbl_len_sorted)
         tbl_context, __ = self.rnn(packed_emb, None)
         tbl_context = unpack(tbl_context)[0]
+
         # recover the sort for pack()
-        v_idx_map_back = Variable(torch.LongTensor(
-            idx_map_back).cuda(), requires_grad=False)
+        v_idx_map_back = Variable(torch.LongTensor(idx_map_back).cuda(), requires_grad=False)
         tbl_context = tbl_context.index_select(1, v_idx_map_back)
+
         return tbl_context
 
     def forward(self, lay_all, lengths, q_all, q):
@@ -560,8 +570,7 @@ class ParserModel(nn.Module):
 
         # co-attention
         if self.q_co_attention is not None:
-            q_tgt_enc_co_attn, q_tgt_all_co_attn = self.q_co_attention(
-                q_tgt_all, q_len, lay_all, lay_e)
+            q_tgt_enc_co_attn, q_tgt_all_co_attn = self.q_co_attention(q_tgt_all, q_len, lay_all, lay_e)
             # q_tgt_enc = tuple(((it0 + it1) * 0.5 for it0, it1 in zip(q_tgt_enc, q_tgt_enc_co_attn)))
             # q_tgt_all = (q_tgt_all + q_tgt_all_co_attn) * 0.5
             q_tgt_enc, q_tgt_all = q_tgt_enc_co_attn, q_tgt_all_co_attn

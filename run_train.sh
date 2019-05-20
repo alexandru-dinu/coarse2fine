@@ -16,7 +16,7 @@ python src/train.py \
     -layers 1 \
     -learning_rate 0.002 \
     -epochs 50 \
-    -batch_size 16 \
+    -batch_size 8 \
     -global_attention "dot" \
     -attn_hidden 0 \
     -dropout 0.3 \
@@ -29,7 +29,7 @@ python src/train.py \
     -word_embeddings ${emb_dir}/orig-embeddings/ \
     -seed 1234 \
     -cuda \
-    -exp_name django-better-sketch-orig-embeddings \
+    -exp_name django-better-sketch-split-func-intent-orig-embeddings \
 
 
 #    -use_custom_embeddings \

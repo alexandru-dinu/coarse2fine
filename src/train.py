@@ -1,19 +1,23 @@
 from __future__ import division
 
 import argparse
+import logging
 import os
 from argparse import Namespace
 
+import coloredlogs
 import torch
 from tensorboardX import SummaryWriter
 
-import cli_logger
 import options
 import table
 import table.ModelConstructor
 import table.Models
 import table.modules
 from table.Utils import set_seed
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG')
 
 arg_parser = argparse.ArgumentParser()
 
@@ -37,6 +41,7 @@ args.checkpoint_save_path = os.path.join(EXP_BASE_DIR, "checkpoints")
 
 # --
 
+
 def dump_cfg(file: str, cfg: Namespace) -> None:
     cfg = sorted(vars(cfg).items(), key=lambda x: x[0])
     fp = open(file, "wt")
@@ -56,7 +61,7 @@ if args.layers != -1:
 args.brnn = (args.encoder_type == "brnn")
 
 set_seed(args.seed)
-cli_logger.info(" * using seed: %d" % args.seed)
+logger.info(" * using seed: %d" % args.seed)
 
 
 def report_func(epoch: int, batch: int, num_batches: int, start_time: float, lr: float, report_stats: table.Statistics):
@@ -92,7 +97,7 @@ def load_fields(train_data, valid_data, checkpoint):
     valid_data.fields = fields
 
     if args.train_from:
-        cli_logger.info('Loading vocab from checkpoint at %s' % args.train_from)
+        logger.info(' * loading vocab from checkpoint at %s' % args.train_from)
         fields = table.IO.TableDataset.load_fields(checkpoint['vocab'])
 
     return fields
@@ -100,13 +105,10 @@ def load_fields(train_data, valid_data, checkpoint):
 
 def build_model(model_args, fields, checkpoint):
     model = table.ModelConstructor.make_base_model(model_args, fields, checkpoint)
-    print(model)
+    # print(model)
 
-    if model_args.cuda:
-        print(" * use cuda")
-        model.cuda()
-    else:
-        print(" * use cpu")
+    with open(os.path.join(EXP_BASE_DIR, 'model.txt'), 'wt') as fp:
+        fp.write(str(model) + "\n")
 
     return model
 
@@ -115,7 +117,7 @@ def build_optimizer(model, checkpoint=None):
     if args.train_from:
         assert checkpoint is not None
 
-        cli_logger.info(' * loading optimizer from checkpoint')
+        logger.info(' * loading optimizer from checkpoint')
         optim = checkpoint['optim']
         optim.optimizer.load_state_dict(checkpoint['optim'].optimizer.state_dict())
 
@@ -152,20 +154,20 @@ def train(model, train_data, valid_data, fields, optim):
 
     trainer = table.Trainer(model, train_iter, valid_iter, train_loss, valid_loss, optim, summary_writer)
 
-    cli_logger.debug("Training from epoch %d, total: %d" % (args.start_epoch, args.epochs))
+    logger.debug("Training from epoch %d, total: %d" % (args.start_epoch, args.epochs))
 
     for epoch in range(args.start_epoch, args.epochs + 1):
         if args.fix_word_vecs:
             model.q_encoder.embeddings.set_update(epoch >= args.update_word_vecs_after)
 
         train_stats = trainer.train(epoch, fields, report_func)
-        cli_logger.info('Train accuracy: %s' % train_stats.accuracy(return_str=True))
+        logger.info('Train accuracy: %s' % train_stats.accuracy(return_str=True))
 
         for k, v in train_stats.accuracy(return_str=False).items():
             summary_writer.add_scalar("train/accuracy/%s" % k, v / 100.0, trainer.global_timestep)
 
         valid_stats = trainer.validate(epoch, fields)
-        cli_logger.info('Validation accuracy: %s' % valid_stats.accuracy(return_str=True))
+        logger.info('Validation accuracy: %s' % valid_stats.accuracy(return_str=True))
 
         for k, v in valid_stats.accuracy(return_str=False).items():
             summary_writer.add_scalar("valid/accuracy/%s" % k, v / 100.0, trainer.global_timestep)
@@ -176,41 +178,41 @@ def train(model, train_data, valid_data, fields, optim):
         if epoch >= args.start_checkpoint_at:
             trainer.drop_checkpoint(args, epoch, fields, valid_stats)
 
-    cli_logger.info('Training done')
+    logger.info('Training done')
     summary_writer.close()
 
 
 def main():
-    cli_logger.info(" * loading train and valid data from %s" % args.dataset_dir)
+    logger.info(" * loading train and valid data from %s" % args.dataset_dir)
 
     train_data = torch.load(os.path.join(args.dataset_dir, 'train.pt'))
     valid_data = torch.load(os.path.join(args.dataset_dir, 'valid.pt'))
 
-    cli_logger.info(' * number of training sentences: %d' % len(train_data))
-    cli_logger.info(' * maximum batch size: %d' % args.batch_size)
+    logger.info(' * number of training sentences: %d' % len(train_data))
+    logger.info(' * maximum batch size: %d' % args.batch_size)
 
     if args.train_from:
-        cli_logger.info(' * loading checkpoint from %s' % args.train_from)
+        logger.info(' * loading checkpoint from %s' % args.train_from)
 
         checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
         model_args = checkpoint['opt']
 
         args.start_epoch = checkpoint['epoch'] + 1
     else:
-        cli_logger.info(' * training from scratch')
+        logger.info(' * training from scratch')
         checkpoint = None
         model_args = args
 
-    cli_logger.info(" * loading fields generated from preprocessing phase")
+    logger.info(" * loading fields generated from preprocessing phase")
     fields = load_fields(train_data, valid_data, checkpoint)
 
-    cli_logger.info(" * building model")
+    logger.info(" * building model")
     model = build_model(model_args, fields, checkpoint)
 
-    cli_logger.info(" * building optimizer")
+    logger.info(" * building optimizer")
     optim = build_optimizer(model, checkpoint)
 
-    cli_logger.info(" * start training")
+    logger.info(" * start training")
     train(model, train_data, valid_data, fields, optim)
 
 

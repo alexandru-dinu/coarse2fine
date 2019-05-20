@@ -1,13 +1,17 @@
 import argparse
+import logging
 import os
 
+import coloredlogs
 import torch
 
-import cli_logger
 import options
 import table
 import table.IO
 from table.Utils import set_seed
+
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG')
 
 arg_parser = argparse.ArgumentParser(description='preprocess.py')
 
@@ -36,41 +40,41 @@ if args.cuda:
 def main():
     fields = table.IO.TableDataset.get_fields()
 
-    cli_logger.info(" * building training")
+    logger.info(" * building training")
     train = table.IO.TableDataset(args.train_anno, fields, args.permute_order, args, True)
 
     if os.path.isfile(args.valid_anno):
-        cli_logger.info(" * building valid")
+        logger.info(" * building valid")
         valid = table.IO.TableDataset(args.valid_anno, fields, permute_order=0, args=args, filter_ex=True)
     else:
         valid = None
 
     if os.path.isfile(args.test_anno):
-        cli_logger.info(" * building test")
+        logger.info(" * building test")
         test = table.IO.TableDataset(args.test_anno, fields, permute_order=0, args=args, filter_ex=False)
     else:
         test = None
 
-    cli_logger.info(" * building vocab")
+    logger.info(" * building vocab")
     table.IO.TableDataset.build_vocab(train, valid, test, args)
 
-    cli_logger.info(" * saving vocab.pt")
+    logger.info(" * saving vocab.pt")
     torch.save(table.IO.TableDataset.save_vocab(fields), open(os.path.join(args.save_data, 'vocab.pt'), 'wb'))
 
     # can't save fields, so remove/reconstruct at training time.
 
     train.fields = []
-    cli_logger.info(" * saving train.pt")
+    logger.info(" * saving train.pt")
     torch.save(train, open(os.path.join(args.save_data, 'train.pt'), 'wb'))
 
     if os.path.isfile(args.valid_anno):
         valid.fields = []
-        cli_logger.info(" * saving valid.pt")
+        logger.info(" * saving valid.pt")
         torch.save(valid, open(os.path.join(args.save_data, 'valid.pt'), 'wb'))
 
     if os.path.isfile(args.test_anno):
         test.fields = []
-        cli_logger.info(" * saving test.pt")
+        logger.info(" * saving test.pt")
         torch.save(test, open(os.path.join(args.save_data, 'test.pt'), 'wb'))
 
 
