@@ -33,7 +33,7 @@ args.valid_anno = os.path.join(args.root_dir, args.dataset, 'dev.json')
 args.test_anno = os.path.join(args.root_dir, args.dataset, 'test.json')
 args.save_data = os.path.join(args.root_dir, args.dataset)
 
-if args.cuda:
+if args.cuda and args.seed is not None:
     set_seed(args.seed)
 
 

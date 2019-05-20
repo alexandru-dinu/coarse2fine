@@ -6,7 +6,6 @@ from __future__ import division
 
 import logging
 import os
-import sys
 import time
 from copy import deepcopy
 
@@ -232,18 +231,14 @@ class Trainer(object):
 
     def validate(self, epoch, fields):
         """ Called for each epoch to validate. """
-        # Set model in validating mode.
         self.model.eval()
 
         stats = Statistics(0, {})
-        for batch in self.valid_iter:
-            loss, batch_stats = self.forward(
-                epoch, batch, self.valid_loss, fields)
 
-            # Update statistics.
+        for batch in self.valid_iter:
+            loss, batch_stats = self.forward(epoch, batch, self.valid_loss, fields)
             stats.update(batch_stats)
 
-        # Set model back to training mode.
         self.model.train()
 
         return stats

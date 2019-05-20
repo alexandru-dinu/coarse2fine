@@ -60,8 +60,11 @@ if args.layers != -1:
 
 args.brnn = (args.encoder_type == "brnn")
 
-set_seed(args.seed)
-logger.info(" * using seed: %d" % args.seed)
+if args.seed is not None:
+    logger.info(" * using seed: %d" % args.seed)
+    set_seed(args.seed)
+else:
+    logger.warning(" * not using custom seed")
 
 
 def report_func(epoch: int, batch: int, num_batches: int, start_time: float, lr: float, report_stats: table.Statistics):

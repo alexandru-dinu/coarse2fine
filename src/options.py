@@ -6,7 +6,7 @@ def set_common_options(parser):
     # GPU
     parser.add_argument('-cuda', action='store_true', help="Whether to use CUDA or not")
     parser.add_argument('-gpu_id', default=[0], nargs='+', type=int, help="Use CUDA on the listed devices.")
-    parser.add_argument('-seed', type=int, default=123, help="Random seed used for the experiments reproducibility.")
+    parser.add_argument('-seed', type=int, help="Random seed used for the experiments reproducibility.")
 
     return parser
 

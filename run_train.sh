@@ -15,7 +15,7 @@ python src/train.py \
     -decoder_input_size 200 \
     -layers 1 \
     -learning_rate 0.002 \
-    -epochs 50 \
+    -epochs 100 \
     -batch_size 8 \
     -global_attention "dot" \
     -attn_hidden 0 \
@@ -27,11 +27,10 @@ python src/train.py \
     -start_checkpoint_at 10 \
     -word_emb_size 250 \
     -word_embeddings ${emb_dir}/orig-embeddings/ \
-    -seed 1234 \
     -cuda \
     -exp_name django-better-sketch-split-func-intent-orig-embeddings \
 
-
+#    -seed 1234 \
 #    -use_custom_embeddings \
 #    -vocab_file ${emb_exp_dir}/*.vocab \
 #    -pt_embeddings ${emb_dir}/glove.6B.50d.txt \
