@@ -1,8 +1,7 @@
-termcolor
+nltk
+torchtext==0.2.0
+coloredlogs
+numpy
 tqdm
 torch==0.2.0
-torchtext==0.2.0
-numpy
-nltk
-forked_path
 tensorboardX
