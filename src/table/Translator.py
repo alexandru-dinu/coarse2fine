@@ -35,7 +35,7 @@ def recover_layout_token(pred_list, vocab, max_sent_length):
 def recover_target_token(lay_skip, pred_list, vocab_tgt, vocab_copy_ext, max_sent_length):
     r_list = []
     for i in range(max_sent_length):
-        if i < len(lay_skip) and lay_skip[i] not in set(['NUMBER', 'NAME', 'STRING', table.IO.SKP_WORD]):
+        if i < len(lay_skip) and not lay_skip[i].startswith('FUNC#') and lay_skip[i] not in set(['NUMBER', 'NAME', 'STRING', table.IO.SKP_WORD]):
             tk = lay_skip[i]
         else:
             # filter topk results using layout information

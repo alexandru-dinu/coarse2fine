@@ -6,7 +6,7 @@ model_path=$2
 base_dir=$(dirname "$(readlink -f $0)")
 data_dir=${base_dir}/data_model/${dataset}
 
-python src/test-single.py \
+python src/test_single.py \
     -root_dir ${base_dir}/data_model/ \
     -dataset ${dataset} \
     -split test \

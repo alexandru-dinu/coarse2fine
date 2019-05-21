@@ -368,8 +368,9 @@ class LayCoAttention(CoAttention):
 
 
 class CopyGenerator(nn.Module):
-    """Generator module that additionally considers copying
-    words directly from the source. For each source sentence we have a `src_map` that maps each source word to an index in `tgt_dict` if it known, or else to an extra word. The copy generator is an extended version of the standard generator that computse three values.
+    """Generator module that additionally considers copying words directly from the source.
+    For each source sentence we have a `src_map` that maps each source word to an index in `tgt_dict` if it known, or else to an extra word.
+    The copy generator is an extended version of the standard generator that computse three values.
     * :math:`p_{softmax}` the standard softmax over `tgt_dict`
     * :math:`p(z)` the probability of instead copying a word from the source, computed using a bernoulli
     * :math:`p_{copy}` the probility of copying a word instead. taken from the attention distribution directly.
@@ -380,23 +381,26 @@ class CopyGenerator(nn.Module):
        tgt_dict (Vocab): output target dictionary
     """
 
-    def __init__(self, dropout, hidden_size, context_size, tgt_dict, ext_dict, copy_prb):
+    def __init__(self, dropout, hidden_size, context_size, tgt_vocab, ext_vocab, copy_prb):
         super(CopyGenerator, self).__init__()
+
         self.copy_prb = copy_prb
         self.dropout = nn.Dropout(dropout)
-        self.linear = nn.Linear(hidden_size, len(tgt_dict))
+        self.linear = nn.Linear(hidden_size, len(tgt_vocab))
+
         if copy_prb == 'hidden':
             self.linear_copy = nn.Linear(hidden_size, 1)
         elif copy_prb == 'hidden_context':
             self.linear_copy = nn.Linear(hidden_size + context_size, 1)
         else:
             raise NotImplementedError
-        self.tgt_dict = tgt_dict
-        self.ext_dict = ext_dict
+
+        self.tgt_vocab = tgt_vocab
+        self.ext_vocab = ext_vocab
 
     def forward(self, hidden, dec_rnn_output, concat_c, attn, copy_to_ext, copy_to_tgt):
         """
-        Compute a distribution over the target dictionary extended by the dynamic dictionary implied by compying source words.
+        Compute a distribution over the target dictionary extended by the dynamic dictionary implied by copying source words.
         Args:
            hidden (`FloatTensor`): hidden outputs `[tlen * batch, hidden_size]`
            attn (`FloatTensor`): attn for each `[tlen * batch, src_len]`
@@ -444,9 +448,9 @@ class CopyGenerator(nn.Module):
         mul_attn = torch.mul(attn, 1.0 - copy.expand_as(attn))
         # copy to extend vocabulary
         copy_to_ext_onehot = onehot(
-            copy_to_ext, N=len(self.ext_dict), ignore_index=self.ext_dict.stoi[table.IO.UNK_WORD]).float()
+            copy_to_ext, N=len(self.ext_vocab), ignore_index=self.ext_vocab.stoi[table.IO.UNK_WORD]).float()
         ext_copy_prob = torch.bmm(mul_attn.view(-1, batch, slen).transpose(0, 1),
-            copy_to_ext_onehot.transpose(0, 1)).transpose(0, 1).contiguous().view(-1, len(self.ext_dict))
+            copy_to_ext_onehot.transpose(0, 1)).transpose(0, 1).contiguous().view(-1, len(self.ext_vocab))
         ext_copy_prob_log = safe_log(ext_copy_prob)
 
         return torch.cat([prob_log, ext_copy_prob_log], 1).view(dec_seq_len, batch_size, -1)
@@ -516,6 +520,7 @@ class ParserModel(nn.Module):
 
         # encoding
         q_enc, q_all = self.q_encoder(q, lengths=q_len, ent=ent)
+
         if self.args.separate_encoder:
             q_tgt_enc, q_tgt_all = self.q_tgt_encoder(q, lengths=q_len, ent=ent)
         else:

@@ -23,12 +23,14 @@ if args.beam_size > 0:
 
 
 def main():
+    ex = {
+        "token": ["self", ".", "error", "(", "self", ".", "cmd", ".", "missing_args_message", ")"],
+        "src"  : ["call", "the", "method", "self.error", "[", "self", ".", "error", "]", "with", "an", "argument", "self.cmd.missing_args_message", "[", "self", ".", "cmd", ".",
+                  "missing_args_message", "]"],
+        "type" : ["self", ".", "FUNC#1", "(", "self", ".", "NAME", ".", "NAME", ")"]
+    }
     js_list = [
-        table.IO.preprocess_json({
-            "token": ["val", "=", "1", "+", "2"],
-            "src"  : "val is the sum of 1 and 2".split(),
-            "type" : ["NAME", "OP", "NUMBER", "OP", "NUMBER"]
-        })
+        table.IO.preprocess_json(ex)
     ]
 
     metric_name_list = ['tgt']

@@ -60,40 +60,51 @@ class Statistics(object):
 
 def count_accuracy(scores, target, mask=None, row=False):
     pred = argmax(scores)
+
     if mask is None:
         m_correct = pred.eq(target)
         num_all = m_correct.numel()
+
     elif row:
         m_correct = pred.eq(target).masked_fill_(mask, 1).prod(0, keepdim=False)
         num_all = m_correct.numel()
+
     else:
         non_mask = mask.ne(1)
         m_correct = pred.eq(target).masked_select(non_mask)
         num_all = non_mask.sum()
+
     return m_correct, num_all
 
 
 def count_token_prune_accuracy(scores, target, _mask, row=False):
     # 0 -> 0.5 by sigmoid
+
     pred = scores.gt(0).long()
     target = target.long()
     mask = torch.ByteTensor(_mask).cuda().unsqueeze(1).expand_as(target)
+
     if row:
         m_correct = pred.eq(target).masked_fill_(
             mask, 1).prod(0, keepdim=False)
         num_all = m_correct.numel()
+
     else:
         non_mask = mask.ne(1)
         m_correct = pred.eq(target).masked_select(non_mask)
         num_all = non_mask.sum()
+
     return m_correct, num_all
 
 
 def aggregate_accuracy(r_dict, metric_name_list):
     m_list = []
+
     for metric_name in metric_name_list:
         m_list.append(r_dict[metric_name][0])
+
     agg = torch.stack(m_list, 0).prod(0, keepdim=False)
+
     return agg.sum(), agg.numel()
 
 
@@ -160,7 +171,8 @@ class Trainer(object):
         gold['lay'] = lay[1:]
         tgt_copy_mask = batch.tgt_copy_ext.ne(fields['tgt_copy_ext'].vocab.stoi[table.IO.UNK_WORD]).long()[1:]
         tgt_org_mask = batch.tgt_copy_ext.eq(fields['tgt_copy_ext'].vocab.stoi[table.IO.UNK_WORD]).long()[1:]
-        gold['tgt'] = torch.mul(tgt_copy_mask, batch.tgt_copy_ext[1:] + len(fields['tgt_loss'].vocab)) + torch.mul(tgt_org_mask, batch.tgt_loss[1:])
+        gold['tgt'] = torch.mul(tgt_copy_mask, batch.tgt_copy_ext[1:] + len(fields['tgt_loss'].vocab)) + \
+                      torch.mul(tgt_org_mask, batch.tgt_loss[1:])
 
         if self.model.args.coverage_loss > 0 and epoch > 10:
             gold['cover'] = loss_coverage * self.model.args.coverage_loss

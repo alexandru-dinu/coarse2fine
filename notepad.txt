@@ -1,8 +1,18 @@
-["NAME", ".", "NAME", "=", "NAME", ".", "NAME"]
-["NAME", "OP", "NAME", "OP", "NAME", "OP", "NAME"]
-
-["logger", ".", "level", "=", "logging", ".", "NOTSET"]
-["logger", ".", "level", "=", "logging", ".", "NOTSET"]
-
-["substitute", "logging.NOTSET", "for", "logger.level"]
-["substitute", "logging.NOTSET", "[", "logging", ".", "NOTSET", "]", "for", "logger.level", "[", "logger", ".", "level", "]", "."]
+dir(batch):
+    'batch_size',       -> int
+    'copy_to_ext',      -> intent, but vocab = all src words not in tgt (output)
+    'copy_to_tgt',      -> intent, but vocab = tgt.vocab
+    'dataset',          -> link to entire dataset
+    'fromvars',         -> (not used) create a Batch directly from a number of Variables
+    'indices',          -> corresponding json line from (<split>.json)
+    'lay',              -> indices s.t. fields['lay'].vocab.itos[idx] = token in sketch (type) : <s> SKETCH </s>
+    'lay_e',            -> same as 'lay', but without <s>, </s>: SKETCH
+    'lay_index',
+    'lay_parent_index',
+    'src',              -> indices s.t. fields['src'].vocab.itos[idx] = word in intent (src)
+    'tgt',              -> indices s.t. to represent only the target layout: <s> [<blank>]+ </s
+    'tgt_copy_ext',     -> target (code) tokens if they appear in the intent, otherwise UNK (size = target) - same vocab as copy_to_ext
+    'tgt_loss',         -> indices s.t. fields['tgt_loss'].vocab.itos[idx] = token in actual code (token) : <s> CODE </s>
+    'tgt_mask',
+    'tgt_parent_index',
+    'train'             -> bool

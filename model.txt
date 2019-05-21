@@ -36,9 +36,9 @@ ParserModel (
         (word_dropout): LockedDropout ()
         (rnn): LSTM(200, 300, dropout=0.3)
         (attn): GlobalAttention (
-          (linear_out): Linear (600 -> 300)
-          (sm): Softmax ()
-          (tanh): Tanh ()
+            (linear_out): Linear (600 -> 300)
+            (sm): Softmax ()
+            (tanh): Tanh ()
         )
     )
 
