@@ -368,7 +368,8 @@ class LayCoAttention(CoAttention):
 
 
 class CopyGenerator(nn.Module):
-    """Generator module that additionally considers copying words directly from the source.
+    """
+    Generator module that additionally considers copying words directly from the source.
     For each source sentence we have a `src_map` that maps each source word to an index in `tgt_dict` if it known, or else to an extra word.
     The copy generator is an extended version of the standard generator that computse three values.
     * :math:`p_{softmax}` the standard softmax over `tgt_dict`

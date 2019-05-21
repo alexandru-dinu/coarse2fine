@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
+
 
 def onehot(indexes, N=None, ignore_index=None):
     """
@@ -26,6 +26,7 @@ def onehot(indexes, N=None, ignore_index=None):
 
     return output
 
+
 def _is_long(x):
     if hasattr(x, 'data'):
         x = x.data
@@ -44,7 +45,7 @@ def cross_entropy(logits, target, weight=None, size_average=True,
             target = onehot(target, num_classes).type_as(logits)
         if smooth_dist is None:
             target = (1 - smooth_eps) * target + \
-                smooth_eps / num_classes
+                     smooth_eps / num_classes
         else:
             target = torch.lerp(
                 target, smooth_dist.unsqueeze(0), smooth_eps)
@@ -71,5 +72,7 @@ class CrossEntropyLossSmooth(nn.CrossEntropyLoss):
         self.smooth_dist = smooth_dist
 
     def forward(self, input, target):
-        return cross_entropy(input, target, self.weight, self.size_average,
-                             self.ignore_index, self.smooth_eps, self.smooth_dist)
+        return cross_entropy(
+            input, target, self.weight, self.size_average,
+            self.ignore_index, self.smooth_eps, self.smooth_dist
+        )
