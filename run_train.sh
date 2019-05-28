@@ -16,7 +16,7 @@ python src/train.py \
     -layers 1 \
     -learning_rate 0.002 \
     -epochs 100 \
-    -batch_size 8 \
+    -batch_size 12 \
     -global_attention "dot" \
     -attn_hidden 0 \
     -dropout 0.3 \
@@ -27,8 +27,9 @@ python src/train.py \
     -start_checkpoint_at 10 \
     -word_emb_size 250 \
     -word_embeddings ${emb_dir}/orig-embeddings/ \
+    -optim adam \
     -cuda \
-    -exp_name COMET_django-better-sketch-split-func-intent-orig-embeddings \
+    -exp_name django-better-sketch-split-func-intent-orig-embeddings-adam \
 
 #    -seed 1234 \
 #    -use_custom_embeddings \

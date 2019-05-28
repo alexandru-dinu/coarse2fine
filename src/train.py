@@ -52,13 +52,14 @@ experiment = Experiment(
 # --
 
 
-def dump_cfg(file: str, cfg: Namespace) -> None:
+def dump_cfg(file: str, cfg: dict) -> None:
     with open(file, 'wt') as fp:
-        for k, v in sorted(vars(cfg).items(), key=lambda x: x[0]):
+        for k, v in sorted(cfg.items(), key=lambda x: x[0]):
             fp.write("%32s: %s\n" % (k, v))
 
 
-dump_cfg(os.path.join(EXP_BASE_DIR, "train-cfg.txt"), cfg=args)
+dump_cfg(os.path.join(EXP_BASE_DIR, "train-cfg.txt"), cfg=args.__dict__)
+experiment.log_parameters(args.__dict__)
 # --
 
 
@@ -148,7 +149,6 @@ def build_optimizer(model, checkpoint=None):
 
 
 def train(model, train_data, valid_data, fields, optim):
-    experiment.log_parameters(args.__dict__)
     experiment.set_model_graph(str(model))
 
     train_iter = table.IO.OrderedIterator(
@@ -174,15 +174,15 @@ def train(model, train_data, valid_data, fields, optim):
         logger.info('Train accuracy: %s' % train_stats.accuracy(return_str=True))
 
         for k, v in train_stats.accuracy(return_str=False).items():
-            summary_writer.add_scalar("train/acc/%s" % k, v / 100.0, trainer.global_timestep)
-            experiment.log_metric("train/acc/%s" % k, v / 100.0, step=trainer.global_timestep)
+            summary_writer.add_scalar("train/accuracy/%s" % k, v / 100.0, trainer.global_timestep)
+            experiment.log_metric("train/accuracy/%s" % k, v / 100.0, step=trainer.global_timestep)
 
         valid_stats = trainer.validate(epoch, fields)
         logger.info('Validation accuracy: %s' % valid_stats.accuracy(return_str=True))
 
         for k, v in valid_stats.accuracy(return_str=False).items():
-            summary_writer.add_scalar("valid/acc/%s" % k, v / 100.0, trainer.global_timestep)
-            experiment.log_metric("valid/acc/%s" % k, v / 100.0, step=trainer.global_timestep)
+            summary_writer.add_scalar("valid/accuracy/%s" % k, v / 100.0, trainer.global_timestep)
+            experiment.log_metric("valid/accuracy/%s" % k, v / 100.0, step=trainer.global_timestep)
 
         # Update the learning rate
         trainer.epoch_step(eval_metric=None, epoch=epoch)

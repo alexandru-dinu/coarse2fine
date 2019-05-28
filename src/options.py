@@ -112,7 +112,7 @@ def set_train_options(parser):
     # Optimization options
     parser.add_argument('-batch_size', type=int, default=64, help='Maximum batch size')
     parser.add_argument('-epochs', type=int, default=30, help='Number of training epochs')
-    parser.add_argument('-optim', default='rmsprop', choices=['sgd', 'adagrad', 'adadelta', 'adam', 'rmsprop'], help="Optimization method.")
+    parser.add_argument('-optim', default='rmsprop', choices=['sgd', 'adam', 'rmsprop'], help="Optimization method.")
     parser.add_argument('-max_grad_norm', type=float, default=5,
         help="If the norm of the gradient vector exceeds this, renormalize it to have the norm equal to max_grad_norm"
     )
