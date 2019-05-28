@@ -2,7 +2,7 @@
 This is the loadable seq2seq trainer library that is
 in charge of training details, loss compute, and statistics.
 """
-from __future__ import division
+from comet_ml import Experiment
 
 import logging
 import os
@@ -120,7 +120,7 @@ def _debug_batch_content(vocab, ts_batch):
 
 
 class Trainer(object):
-    def __init__(self, model, train_iter, valid_iter, train_loss, valid_loss, optim, summary_writer=None):
+    def __init__(self, model, train_iter, valid_iter, train_loss, valid_loss, optim, summary_writer=None, experiment: Experiment = None):
         """
         Args:
             model: the seq2seq model.
@@ -139,8 +139,11 @@ class Trainer(object):
         self.optim = optim
 
         # tensorboard writer
-        assert summary_writer is not None
         self.summary_writer = summary_writer
+
+        # comet-ml experiment
+        self.experiment = experiment
+
         # global reporting timestep
         self.global_timestep = 0
 
@@ -226,7 +229,9 @@ class Trainer(object):
                 )
 
                 if is_new_report:
-                    self.summary_writer.add_scalar("train/avg_loss", avg_loss / interval_len, self.global_timestep)
+                    self.summary_writer.add_scalar('train/avg_loss', avg_loss / interval_len, self.global_timestep)
+                    self.experiment.log_metric('avg_loss', avg_loss / interval_len, step=self.global_timestep)
+
                     for name, param in self.model.named_parameters():
                         self.summary_writer.add_histogram(name, param, self.global_timestep)
 

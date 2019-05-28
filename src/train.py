@@ -1,4 +1,4 @@
-from __future__ import division
+from comet_ml import Experiment
 
 import argparse
 import logging
@@ -38,16 +38,24 @@ os.makedirs(os.path.join(EXP_BASE_DIR, "checkpoints"), exist_ok=True)
 
 args.checkpoint_save_path = os.path.join(EXP_BASE_DIR, "checkpoints")
 
+# tensorboard
+summary_writer = SummaryWriter(os.path.join(EXP_BASE_DIR, "tb-logs"))
+
+# comet-ml
+experiment = Experiment(
+    api_key='ODIcPPM2QQDopDcnO7WJi8Wzj',
+    project_name='coarse-to-fine',
+    workspace='alexandru-dinu'
+)
+
 
 # --
 
 
 def dump_cfg(file: str, cfg: Namespace) -> None:
-    cfg = sorted(vars(cfg).items(), key=lambda x: x[0])
-    fp = open(file, "wt")
-    for k, v in cfg:
-        fp.write("%32s: %s\n" % (k, v))
-    fp.close()
+    with open(file, 'wt') as fp:
+        for k, v in sorted(vars(cfg).items(), key=lambda x: x[0]):
+            fp.write("%32s: %s\n" % (k, v))
 
 
 dump_cfg(os.path.join(EXP_BASE_DIR, "train-cfg.txt"), cfg=args)
@@ -108,7 +116,6 @@ def load_fields(train_data, valid_data, checkpoint):
 
 def build_model(model_args, fields, checkpoint):
     model = table.ModelConstructor.make_base_model(model_args, fields, checkpoint)
-    # print(model)
 
     with open(os.path.join(EXP_BASE_DIR, 'model.txt'), 'wt') as fp:
         fp.write(str(model) + "\n")
@@ -141,8 +148,8 @@ def build_optimizer(model, checkpoint=None):
 
 
 def train(model, train_data, valid_data, fields, optim):
-    # tensorboard
-    summary_writer = SummaryWriter(os.path.join(EXP_BASE_DIR, "tb-logs"))
+    experiment.log_parameters(args.__dict__)
+    experiment.set_model_graph(str(model))
 
     train_iter = table.IO.OrderedIterator(
         dataset=train_data, batch_size=args.batch_size, device=args.gpu_id[0], repeat=False
@@ -155,7 +162,7 @@ def train(model, train_data, valid_data, fields, optim):
     train_loss = table.Loss.LossCompute(smooth_eps=model.args.smooth_eps).cuda()
     valid_loss = table.Loss.LossCompute(smooth_eps=model.args.smooth_eps).cuda()
 
-    trainer = table.Trainer(model, train_iter, valid_iter, train_loss, valid_loss, optim, summary_writer)
+    trainer = table.Trainer(model, train_iter, valid_iter, train_loss, valid_loss, optim, summary_writer, experiment)
 
     logger.debug("Training from epoch %d, total: %d" % (args.start_epoch, args.epochs))
 
@@ -167,16 +174,20 @@ def train(model, train_data, valid_data, fields, optim):
         logger.info('Train accuracy: %s' % train_stats.accuracy(return_str=True))
 
         for k, v in train_stats.accuracy(return_str=False).items():
-            summary_writer.add_scalar("train/accuracy/%s" % k, v / 100.0, trainer.global_timestep)
+            summary_writer.add_scalar("train/acc/%s" % k, v / 100.0, trainer.global_timestep)
+            experiment.log_metric("train/acc/%s" % k, v / 100.0, step=trainer.global_timestep)
 
         valid_stats = trainer.validate(epoch, fields)
         logger.info('Validation accuracy: %s' % valid_stats.accuracy(return_str=True))
 
         for k, v in valid_stats.accuracy(return_str=False).items():
-            summary_writer.add_scalar("valid/accuracy/%s" % k, v / 100.0, trainer.global_timestep)
+            summary_writer.add_scalar("valid/acc/%s" % k, v / 100.0, trainer.global_timestep)
+            experiment.log_metric("valid/acc/%s" % k, v / 100.0, step=trainer.global_timestep)
 
         # Update the learning rate
         trainer.epoch_step(eval_metric=None, epoch=epoch)
+
+        experiment.log_epoch_end(epoch_cnt=epoch)
 
         if epoch >= args.start_checkpoint_at:
             trainer.drop_checkpoint(args, epoch, fields, valid_stats)

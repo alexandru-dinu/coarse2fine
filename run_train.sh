@@ -28,7 +28,7 @@ python src/train.py \
     -word_emb_size 250 \
     -word_embeddings ${emb_dir}/orig-embeddings/ \
     -cuda \
-    -exp_name django-better-sketch-split-func-intent-orig-embeddings \
+    -exp_name COMET_django-better-sketch-split-func-intent-orig-embeddings \
 
 #    -seed 1234 \
 #    -use_custom_embeddings \
