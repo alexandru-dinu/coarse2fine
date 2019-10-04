@@ -5,6 +5,8 @@ import logging
 from pprint import pprint
 
 import coloredlogs
+import random
+import string
 import torch
 
 import options
@@ -27,7 +29,59 @@ if args.beam_size > 0:
     args.batch_size = 1
 
 
+def do_test(example_list):
+    metric_name_list = ['lay-token', 'lay', 'tgt-token', 'tgt']
+
+    args.model = args.model_path  # TODO??
+    translator = table.Translator(args)
+    data = table.IO.TableDataset(example_list, translator.fields, 0, None, False)
+
+    test_data = table.IO.OrderedIterator(
+        dataset=data, device=args.gpu_id[0] if args.cuda else -1,
+        batch_size=args.batch_size, train=False, sort=True, sort_within_batch=False
+    )
+
+    out_list = []
+    for i, batch in enumerate(test_data):
+        r = translator.translate(batch)
+        logger.info(r[0])
+        out_list += r
+
+    out_list.sort(key=lambda x: x.idx)
+    assert len(out_list) == len(example_list), 'len(out_list) != len(js_list): {} != {}'.format(len(out_list), len(example_list))
+
+    # evaluation
+    for pred, gold in zip(out_list, example_list):
+        pred.eval(gold)
+
+    for metric_name in metric_name_list:
+        if metric_name.endswith("-token"):
+            c_correct = sum([len(set(x.get_by_name(metric_name)) - set(y[metric_name.split("-")[0]])) == 0 for x, y in zip(out_list, example_list)])
+            acc = c_correct / len(out_list)
+
+            out_str = '{}: {} / {} = {:.2%}'.format(metric_name.upper(), c_correct, len(out_list), acc)
+            logger.info(out_str)
+
+        else:
+            c_correct = sum((x.correct[metric_name] for x in out_list))
+            acc = c_correct / len(out_list)
+
+            out_str = '{}: {} / {} = {:.2%}'.format(metric_name.upper(), c_correct, len(out_list), acc)
+            logger.info(out_str)
+
+            for x in out_list:
+                for prd, tgt in x.incorrect[metric_name]:
+                    logger.warning("\nprd: %s\ntgt: %s" % (" ".join(prd), " ".join(tgt)))
+
+
 def main():
+    ex = {
+        "token": ["fp", "=", "kwargs", ".", "pop", "(", "\" _STR:0_ \"", ",", "sys", ".", "stdout", ")"],
+        "src"  : ["remove", "_STR:0_", "key", "from", "the", "kwargs", "dictionary", ",", "if", "it", "exists", "substitute", "it", "for", "fp", ",", "if", "not", "substitute",
+                  "sys.stdout", "[", "sys", ".", "stdout", "]", "for", "fp", "."],
+        "type" : "NAME = NAME . FUNC#2 ( STRING , NAME . NAME )".split()
+    }
+
     # ex = {
     #     "token": ["self", ".", "error", "(", "self", ".", "cmd", ".", "missing_args_message", ")"],
     #     "src"  : ["call", "the", "method", "self.error", "[", "self", ".", "error", "]", "with", "an", "argument", "self.cmd.missing_args_message", "[", "self", ".", "cmd", ".",
@@ -35,58 +89,29 @@ def main():
     #     "type" : ["self", ".", "FUNC#1", "(", "self", ".", "NAME", ".", "NAME", ")"]
     # }
 
-    ex = {
-        'token': "ajkk = dict ( )".split(),
-        'src'  : "ajkk is an empty dict".split(),
-        'type' : "NAME = dict ( )".split()
-    }
+    # ex = {
+    #     'token': "dir = os . path . join ( app_config . path , self . base )".split(),
+    #     'src'  : "join app_config.path [ app_config . path ] and self.base [ self . base ] into a file path , substitute it for dir".split(),
+    #     'type' : "NAME = NAME . NAME . FUNC#2 ( NAME . NAME , self . NAME )".split()
+    # }
 
     js_list = [
         table.IO.preprocess_json(ex)
     ]
 
-    metric_name_list = ['lay-token', 'lay', 'tgt-token', 'tgt']
+    js_list = []
 
-    args.model = args.model_path  # TODO??
-    translator = table.Translator(args)
-    data = table.IO.TableDataset(js_list, translator.fields, 0, None, False)
+    for _ in range(10):
+        n = random.randint(1, 5)
+        s = ''.join(random.sample(string.ascii_lowercase, n))
+        ex = {
+            "token": ('%s = ' % s).split() + [" _STR:0_ "],
+            "type" : "NAME = STRING".split(),
+            "src"  : ("%s is an empty string" % s).split()
+        }
+        js_list.append(table.IO.preprocess_json(ex))
 
-    test_data = table.IO.OrderedIterator(
-        dataset=data, device=args.gpu_id[0] if args.cuda else -1,
-        batch_size=args.batch_size, train=False, sort=True, sort_within_batch=False
-    )
-
-    r_list = []
-    for i, batch in enumerate(test_data):
-        r = translator.translate(batch)
-        logger.info(r[0])
-        r_list += r
-
-    r_list.sort(key=lambda x: x.idx)
-    assert len(r_list) == len(js_list), 'len(r_list) != len(js_list): {} != {}'.format(len(r_list), len(js_list))
-
-    # evaluation
-    for pred, gold in zip(r_list, js_list):
-        pred.eval(gold)
-
-    for metric_name in metric_name_list:
-        if metric_name.endswith("-token"):
-            c_correct = sum([len(set(x.get_by_name(metric_name)) - set(y[metric_name.split("-")[0]])) == 0 for x, y in zip(r_list, js_list)])
-            acc = c_correct / len(r_list)
-
-            out_str = '{}: {} / {} = {:.2%}'.format(metric_name.upper(), c_correct, len(r_list), acc)
-            logger.info(out_str)
-
-        else:
-            c_correct = sum((x.correct[metric_name] for x in r_list))
-            acc = c_correct / len(r_list)
-
-            out_str = '{}: {} / {} = {:.2%}'.format(metric_name.upper(), c_correct, len(r_list), acc)
-            logger.info(out_str)
-
-            for x in r_list:
-                for prd, tgt in x.incorrect[metric_name]:
-                    logger.warning("\nprd: %s\ntgt: %s" % (" ".join(prd), " ".join(tgt)))
+    do_test(js_list)
 
 
 if __name__ == "__main__":

@@ -48,6 +48,10 @@ def dict_update(src: dict, new_data: dict):
 def _apply_twice(f, x):
     return f(f(x))
 
+def get_exp_name(cur_model):
+    dd = os.path.dirname(os.path.dirname(cur_model))
+    return dd.split('/')[-1]
+
 
 def main():
     js_list = table.IO.read_anno_json(args.anno)
@@ -56,10 +60,23 @@ def main():
 
     prev_best = (None, None)
 
-    for cur_model in glob.glob(args.model_path):
+    model_range = range(10, 101, 5)
+
+    if os.path.isfile(args.model_path):
+        model_list = [args.model_path]
+    elif os.path.isdir(args.model_path):
+        model_list = sorted(glob.glob('%s/**/*.pt' % args.model_path, recursive=True))
+    else:
+        raise RuntimeError('Incorrect model path')
+
+    for i, cur_model in enumerate(model_list):
         assert cur_model.endswith(".pt")
 
-        exp_name = _apply_twice(os.path.dirname, cur_model).split("/")[-1]
+        # TODO: make better
+        # if int(os.path.basename(cur_model)[2:4]) not in model_range:
+        #     continue
+
+        exp_name = get_exp_name(cur_model)
 
         args.model = cur_model
         logger.info(" * evaluating model [%s]" % cur_model)

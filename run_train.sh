@@ -6,7 +6,7 @@ base_dir=$(dirname "$(readlink -f $0)")
 data_dir=${base_dir}/data_model/${dataset}
 
 emb_dir=${base_dir}/../embeddings
-emb_exp_dir=${emb_dir}/2019-05-14_19-16-59-python-so-50
+emb_exp_dir=${emb_dir}/2019-05-14_18-19-19-python-so-200
 
 python src/train.py \
     -root_dir ${base_dir}/data_model/ \
@@ -25,13 +25,18 @@ python src/train.py \
     -copy_prb hidden \
     -batch_report_every 25 \
     -start_checkpoint_at 10 \
-    -word_emb_size 250 \
-    -word_embeddings ${emb_dir}/orig-embeddings/ \
-    -optim adam \
+    -use_custom_embeddings \
+    -vocab_file ${emb_exp_dir}/*.vocab \
+    -pt_embeddings ${emb_dir}/glove.6B.200d.txt \
+    -word_embeddings ${emb_exp_dir}/*.emb \
+    -word_emb_size 200 \
+    -pt_factor 0.1 \
+    -ft_factor 0.9 \
     -cuda \
-    -exp_name django-better-sketch-split-func-intent-orig-embeddings-adam \
+    -exp_name django-orig-pyso-200-embeddings \
 
 #    -seed 1234 \
+
 #    -use_custom_embeddings \
 #    -vocab_file ${emb_exp_dir}/*.vocab \
 #    -pt_embeddings ${emb_dir}/glove.6B.50d.txt \

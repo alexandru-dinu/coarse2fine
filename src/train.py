@@ -48,21 +48,6 @@ experiment = Experiment(
     workspace='alexandru-dinu'
 )
 
-
-# --
-
-
-def dump_cfg(file: str, cfg: dict) -> None:
-    with open(file, 'wt') as fp:
-        for k, v in sorted(cfg.items(), key=lambda x: x[0]):
-            fp.write("%32s: %s\n" % (k, v))
-
-
-dump_cfg(os.path.join(EXP_BASE_DIR, "train-cfg.txt"), cfg=args.__dict__)
-experiment.log_parameters(args.__dict__)
-# --
-
-
 if args.layers != -1:
     args.enc_layers = args.layers
     args.dec_layers = args.layers
@@ -74,6 +59,17 @@ if args.seed is not None:
     set_seed(args.seed)
 else:
     logger.warning(" * not using custom seed")
+
+
+# save args
+def dump_cfg(file: str, cfg: dict) -> None:
+    with open(file, 'wt') as fp:
+        for k, v in sorted(cfg.items(), key=lambda x: x[0]):
+            fp.write("%32s: %s\n" % (k, v))
+
+
+dump_cfg(os.path.join(EXP_BASE_DIR, "train-cfg.txt"), cfg=args.__dict__)
+experiment.log_parameters(args.__dict__)
 
 
 def report_func(epoch: int, batch: int, num_batches: int, start_time: float, lr: float, report_stats: table.Statistics):
