@@ -2,11 +2,11 @@
 
 #### Prerequisites
 
-- use separate conda env: `conda create -n coarse2fine python=3.5`, then:
+- use separate conda env, then:
 
 ```sh
-source activate coarse2fine
-conda install pytorch=0.2.0 -c pytorch
+conda create -n coarse-to-fine python=3.5
+source activate coarse-to-fine
 pip install -r requirements.txt
 ```
 

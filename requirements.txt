@@ -3,5 +3,5 @@ torchtext==0.2.0
 coloredlogs
 numpy
 tqdm
-torch==0.2.0
+torch==0.3.1
 tensorboardX
