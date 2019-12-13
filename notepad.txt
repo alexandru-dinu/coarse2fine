@@ -10,7 +10,7 @@ dir(batch):
     'lay_index',
     'lay_parent_index',
     'src',              -> indices s.t. fields['src'].vocab.itos[idx] = word in intent (src)
-    'tgt',              -> indices s.t. to represent only the target layout: <s> [<blank>]+ </s
+    'tgt',              -> indices s.t. to represent only the target layout: <s> [<blank>]+ </s>
     'tgt_copy_ext',     -> target (code) tokens if they appear in the intent, otherwise UNK (size = target) - same vocab as copy_to_ext
     'tgt_loss',         -> indices s.t. fields['tgt_loss'].vocab.itos[idx] = token in actual code (token) : <s> CODE </s>
     'tgt_mask',
